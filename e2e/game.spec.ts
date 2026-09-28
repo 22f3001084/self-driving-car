@@ -254,8 +254,10 @@ test.describe('the whole journey', () => {
     await page.goto(`${BASE}/?phase=levels&cleared=all&rules=delivery`)
 
     // Only the delivery finale is left: the whole team takes it, so every
-    // player chip lights at once.
-    await expect(page.locator('.live-name.is-now')).toHaveCount(4)
+    // player chip lights at once — all three of them, and nothing else (an
+    // empty fourth seat is not drawn).
+    await expect(page.locator('.live-name.is-now')).toHaveCount(3)
+    await expect(page.locator('.live-name')).toHaveCount(3)
     await cta(page).click() // CONTINUE CHAPTER → the delivery run
 
     // It drives the lot on the policy alone — the only popup is the star
