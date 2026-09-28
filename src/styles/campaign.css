@@ -61,7 +61,13 @@
 /* ---- Over the drive ------------------------------------------------------ */
 /* The instrument cluster steps right so the board's hint bulb keeps its
    corner; the camera-reset follows it. */
-.guided-drive .cluster { right: auto; left: 190px; bottom: 32px; }
+.guided-drive .cluster { right: auto; left: 190px; bottom: 32px; transition: opacity .35s ease, visibility 0s linear .35s; }
+/* The speed gauge is for the drive, and only the drive. While a situation,
+   a result or any other popup is up (the HUD is not "quiet"), it goes: it sat
+   half-hidden under the popup's bottom edge, beside the hint bulb, reading
+   "0 km/h" to nobody. */
+.stage:not([data-hud="quiet"]) .guided-drive .cluster { opacity: 0; visibility: hidden; }
+.stage[data-hud="quiet"] .guided-drive .cluster { transition-delay: 0s; }
 .guided-drive .camera-reset { right: auto; left: 460px; bottom: 40px; }
 .guided-drive .orbit-hint { display: none; }
 

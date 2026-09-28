@@ -55,8 +55,8 @@ test.describe('the board and its menus', () => {
     await expect(page.getByText('ROVER can drive — but it cannot think')).toBeVisible()
     await cta(page).click()
     await expect(page.getByText('A rule is an IF → THEN sentence')).toBeVisible()
-    await expect(page.locator('.tutorial-rule .tr-if')).toContainText('scooter ahead')
-    await expect(page.locator('.tutorial-rule .tr-then')).toContainText('go slowly around it')
+    await expect(page.locator('.tutorial-rule .tr-if')).toContainText('Scooter ahead')
+    await expect(page.locator('.tutorial-rule .tr-then')).toContainText('Go slowly')
     await cta(page).click()
     await expect(page.getByText('From the top — first match wins')).toBeVisible()
     await expect(page.locator('.tutorial-order li')).toHaveCount(2)
@@ -72,8 +72,10 @@ test.describe('the board and its menus', () => {
     // are locked, everyone's share is equal.
     await expect(page.locator('.live-name').first()).toHaveText('Asha')
     await expect(page.locator('.live-name.is-now')).toHaveText('Asha')
-    // A crew of three: the fourth chip carries the car's name.
-    await expect(page.locator('.live-name').nth(3)).toHaveText('ROVER')
+    // A crew of three draws three chips — an empty seat is not shown, and the
+    // car does not borrow it.
+    await expect(page.locator('.live-name')).toHaveCount(3)
+    await expect(page.locator('.chip-face')).toHaveCount(3)
     await expect(page.locator('.journey-players li')).toHaveCount(3)
     for (const row of await page.locator('.journey-players li').all()) {
       await expect(row).toContainText('0 solved')

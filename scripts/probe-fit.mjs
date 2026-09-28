@@ -4,8 +4,16 @@
  * Scrollbars and clipped content are the whole complaint, so this measures
  * them rather than looking for them. A finding is one of:
  *   SCROLL  an element whose content is taller/wider than its own box
- *   BLEED   an element whose painted rect leaves the stage rect
+ *   BLEED   a piece of CONTENT whose painted rect leaves the board
+ *   OFFSCREEN a bleed layer or pinned chrome that leaves the SCREEN
  *   DOCROLL the document itself can scroll
+ *
+ * Two kinds of thing, two rules. Mission content lives on the 1960 x 1102
+ * board and must stay there. The backdrop, the street, the scrims and the
+ * chrome deliberately reach past the board on a screen that is not 16:9
+ * (--bleed-x / --bleed-y, see viewport.ts) — they must stay on the screen.
+ * Content overflow does not depend on the bleed, so it is measured with the
+ * bleed zeroed; the bleed layers are then measured with it restored.
  */
 import { chromium } from 'playwright'
 
@@ -27,6 +35,12 @@ const SCREENS = [
   ['drive', '/?phase=play&level=l1', 0],
   ['situation', '/?phase=play&level=l1', 14000],
   ['report', '/?phase=report&cleared=all&rules=many', 0],
+  // The report is four pages in one fixed panel; each is audited. The policy
+  // page (13 rules + a note) overran the panel for weeks because only page 1
+  // was ever opened here.
+  ['report-policy', '/?phase=report&cleared=all&rules=many', 0, '.report-stepper button >> nth=1'],
+  ['report-crew', '/?phase=report&cleared=all&rules=many&crew=4', 0, '.report-stepper button >> nth=2'],
+  ['report-teacher', '/?phase=report&cleared=all&rules=many', 0, '.report-stepper button >> nth=3'],
 ]
 
 const PORT = process.argv[2] || '5210'
@@ -34,6 +48,11 @@ const ONLY = process.argv[3]
 
 const AUDIT = () => {
   const out = []
+  const root = document.documentElement
+  const bleed0 = [root.style.getPropertyValue('--bleed-x'), root.style.getPropertyValue('--bleed-y')]
+  root.style.setProperty('--bleed-x', '0px')
+  root.style.setProperty('--bleed-y', '0px')
+  void root.offsetHeight
   const stage = document.querySelector('.stage')
   const sr = stage ? stage.getBoundingClientRect() : { left: 0, top: 0, right: innerWidth, bottom: innerHeight }
   const name = (el) => {
@@ -48,6 +67,8 @@ const AUDIT = () => {
   // rectangles smaller than the type's em box), so its "overflow" IS the
   // design; the board SVG itself is thousands of paths that never reflow.
   const BY_DESIGN = new Set(['w2d-viewport', 'w2d-world', 'w2d-layer', 'live'])
+  // Reach past the board on purpose; audited against the SCREEN below.
+  const PINNED = '.act-scene, .screen-scrim, .title-scrim, .skai-scrim, .skai-situation-scrim, .live, .hud-hit, .skai-sound-menu'
   for (const el of document.querySelectorAll('.stage *')) {
     if (el.closest('.skai-board')) continue
     if ([...el.classList].some((c) => BY_DESIGN.has(c))) continue
@@ -75,7 +96,7 @@ const AUDIT = () => {
     if (r.top < sr.top - 2) bleed.push('T' + Math.round(sr.top - r.top))
     if (r.right > sr.right + 2) bleed.push('R' + Math.round(r.right - sr.right))
     if (r.bottom > sr.bottom + 2) bleed.push('B' + Math.round(r.bottom - sr.bottom))
-    if (bleed.length) {
+    if (bleed.length && !el.closest(PINNED)) {
       // walk up: if any ancestor clips, the paint is contained -> not a bleed
       let clipped = false
       for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
@@ -102,6 +123,29 @@ const AUDIT = () => {
       }
     }
   }
+  // Restore the bleed: now the pinned layers are where they really sit, and
+  // each must stay on the screen.
+  root.style.setProperty('--bleed-x', bleed0[0])
+  root.style.setProperty('--bleed-y', bleed0[1])
+  void root.offsetHeight
+  for (const el of document.querySelectorAll('.stage .live, .stage .hud-hit, .stage .skai-sound-menu.is-open, .skai-board [data-part]')) {
+    // The connector rules are drawn running off the frame in the export
+    // itself (to x 2016-2061); the screen edge clips them, as the frame did.
+    if (el.dataset?.part === 'deco-top' || el.dataset?.part === 'deco-bottom') continue
+    const s = getComputedStyle(el)
+    if (s.display === 'none' || s.visibility === 'hidden') continue
+    const r = el.getBoundingClientRect()
+    if (r.width < 2 || r.height < 2) continue
+    // parts drawn deliberately flush with (or past) the frame edge, as the
+    // export has them, are allowed their own few design px
+    const slack = 12 * (+getComputedStyle(root).getPropertyValue('--stage-scale') || 1)
+    const off = []
+    if (r.left < -slack) off.push('L' + Math.round(-r.left))
+    if (r.top < -slack) off.push('T' + Math.round(-r.top))
+    if (r.right > innerWidth + slack) off.push('R' + Math.round(r.right - innerWidth))
+    if (r.bottom > innerHeight + slack) off.push('B' + Math.round(r.bottom - innerHeight))
+    if (off.length) out.push(['OFFSCREEN', name(el) + (el.dataset?.part ? `[${el.dataset.part}]` : ''), off.join(' ')])
+  }
   return out
 }
 
@@ -110,11 +154,16 @@ const rows = []
 for (const [w, h] of SIZES) {
   const page = await browser.newPage({ viewport: { width: w, height: h } })
   for (const [name, path] of SCREENS) {
-    if (ONLY && name !== ONLY) continue
+    if (ONLY && !name.startsWith(ONLY)) continue
     try {
       await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: 'domcontentloaded' })
       await page.waitForTimeout(1200)
       const extra = SCREENS.find((s) => s[0] === name)?.[2] ?? 0
+      const click = SCREENS.find((s) => s[0] === name)?.[3]
+      if (click) {
+        await page.locator(click).click({ force: true, timeout: 15_000 })
+        await page.waitForTimeout(500)
+      }
       if (extra) {
         // Wait for the situation popup itself, not just the clock.
         await page.waitForSelector('.skai-situation', { timeout: extra + 30_000 }).catch(() => null)

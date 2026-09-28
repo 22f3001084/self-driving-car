@@ -1,5 +1,39 @@
 # Changelog — The Northline Run
 
+## 2026-09-28 — Any screen, a speaker, and a deliverable under 10 MB
+
+### Every screen size, edge to edge
+
+The board still scales as one 1960 × 1102 piece — every element grows and
+shrinks with the screen, and nothing reflows — but it no longer leaves dead
+bars. On a screen that is not 16:9 the street and each screen's backdrop fill
+the space beside the board, and the chrome pins to the real screen corners: the
+back tab in the corner of a 4:3 tablet, the rail on the right edge of an
+ultrawide. Mission content stays on the board, where it was designed and
+tested. Portrait tablets now turn the board like phones do (an upright iPad
+was letterboxing it at 42%, body text near 10 px); a portrait monitor, which
+cannot be turned, keeps it upright.
+
+### The speaker, from the AI & Data layout
+
+The newer SKAI layout set draws a speaker left of the info hex and an audio
+menu under it — Replay Narration, Mute All Sounds. Both are grafted in path for
+path from `Designn systumm/layouts/ai-data.html` (`scripts/graft-speaker.py`),
+animate in on the board's own beat, and are wired up. Mute now silences the
+recorded narrator too, and the speaker shows a cross while muted.
+
+### 20 MB → 7.3 MB
+
+- The Blender kit is Draco-compressed (4.7 MB → 0.86 MB) with the decoder
+  inlined, so it still loads off `file://`. `app.js` 8.6 MB → 2.7 MB.
+- Narration re-encoded to 48 kbps mono (7.5 MB → 2.8 MB, every clip's length
+  checked against the original).
+- Two opaque PNG backdrops became JPEG (1.5 MB → 118 KB); the avatars baked
+  into the multiplayer board were 900 px bitmaps drawn at 51 px (920 KB → 170 KB).
+- `scripts/package-clean.mjs` writes the clean deliverable,
+  `The-Northline-Run-BE6-Play`: index.html, a fresh assets folder, a launcher
+  and a one-page guide. 7.31 MB, 5.41 MB zipped.
+
 ## 2026-09-04 — The design is the deck's, and the mission is one journey
 
 ### The look now comes from the Figma frame, not from an interpretation of it

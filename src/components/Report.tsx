@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import deliveredArt from '../assets/img/delivered.png'
+import deliveredArt from '../assets/img/delivered.jpg'
 import { motion } from 'framer-motion'
 import { LEVELS, PATROLS, TILES, designCopy, reportCopy, ruleSentence } from '../content'
 import { SENSOR_CHOICES } from '../choices'
 import { useGame } from '../store'
 import { play } from '../sound'
 import { narrate } from '../narration'
-import { IconArrowLeft, IconArrowRight, IconCheck, IconRestart, IconRoute, IconSensor } from '../icons'
+import { IconCheck, IconRestart, IconRoute, IconSensor } from '../icons'
 import { useCta } from '../hud'
-import { totalStars, RULE_STOP_IDS } from '../campaign'
+import { playerName, totalStars, RULE_STOP_IDS } from '../campaign'
 import opsRoom from '../assets/img/bg-ops-room.jpg'
 
 /** One per learning objective in the Group Digital Mission Brief, so the report
@@ -32,6 +32,8 @@ const STAMPS = [
  */
 export default function Report() {
   const crew = useGame((s) => s.crew)
+  // only the seats that were played — the store keeps four name slots
+  const crewCount = useGame((s) => s.crewCount)
   const mode = useGame((s) => s.mode)
   const rules = useGame((s) => s.rules)
   const vehicleName = useGame((s) => s.vehicleName)
@@ -149,8 +151,8 @@ export default function Report() {
         <section className={`report-step ${step === 2 ? 'is-on' : ''}`}>
           <h3>{mode === 'solo' ? 'Pilot' : 'Crew'}</h3>
           <ul className="report-crew">
-            {crew.map((name, index) => (
-              <li key={index}><span>{index + 1}</span>{name.trim() || (mode === 'solo' ? 'Solo pilot' : `Engineer ${index + 1}`)}</li>
+            {crew.slice(0, mode === 'solo' ? 1 : crewCount).map((name, index) => (
+              <li key={index}><span>{index + 1}</span>{mode === 'solo' ? name.trim() || 'Solo pilot' : playerName(crew, index)}</li>
             ))}
           </ul>
           <h3>Skills signed off</h3>
@@ -193,17 +195,9 @@ export default function Report() {
           <p className="panel-note">{reportCopy.patrolsBrief}</p>
         </section>
 
-        {/* ---- Walk ------------------------------------------------------ */}
-        <div className="report-nav no-print">
-          <button className="btn ghost" onClick={() => go(step - 1)} disabled={step === 0}>
-            <span className="btn-ico"><IconArrowLeft light /></span>Back
-          </button>
-          {step < steps.length - 1 && (
-            <button className="btn primary" onClick={() => go(step + 1)}>
-              Next<span className="btn-ico"><IconArrowRight light /></span>
-            </button>
-          )}
-        </div>
+        {/* No in-panel Back / Next: the numbered tabs above walk the report,
+            and the board's own key (NEXT PAGE) steps forward. Two footers
+            under one panel read as a layout fault. */}
       </motion.div>
     </div>
   )

@@ -3,16 +3,22 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useGame } from '../store'
 import { useSettings, clearSave } from '../persist'
 import { CONNECTORS, TILES, infoCopy, mission } from '../content'
-import { STOP_ORDER, currentDriver, playerName } from '../campaign'
+import { STOP_ORDER, currentDriver, faceFor, playerName } from '../campaign'
 // the live rotation: whose seat the chip band should light
 import { play, setMuted } from '../sound'
-import { NARRATOR, narratorVoiceLabel, setNarrationEnabled, stopNarration } from '../narration'
+import { NARRATOR, narratorVoiceLabel, replayNarration, setNarrationEnabled, stopNarration } from '../narration'
 import { useHud, fireCta } from '../hud'
-import CrewPanel from './CrewPanel'
+import CrewPanel, { PLAYER_FACES } from './CrewPanel'
 import {
-  BOARDS, CAP_RATIO, LAST_BEAT, LIVE_BEAT, choreograph, mmss, paintRail,
+  BOARDS, CAP_RATIO, LAST_BEAT, LIVE_BEAT, SOUND_MENU_ART, choreograph, mmss, paintRail, pinStyle,
+  seatFace, seatName,
   type Rect, type SkaiScreen,
 } from '../skai/board'
+
+/** A box in board px, for a control or plate that carries no text. */
+function boxStyle(rect: Rect): CSSProperties {
+  return { left: rect[0], top: rect[1], width: rect[2], height: rect[3] }
+}
 
 function rectStyle(rect: Rect | undefined, extra?: CSSProperties): CSSProperties {
   if (!rect) return { display: 'none' }
@@ -32,7 +38,7 @@ function rectStyle(rect: Rect | undefined, extra?: CSSProperties): CSSProperties
 export default function SkaiHud() {
   const phase = useGame((s) => s.phase)
   const crew = useGame((s) => s.crew)
-  const vehicleName = useGame((s) => s.vehicleName)
+  const crewFaces = useGame((s) => s.crewFaces)
   const startedAt = useGame((s) => s.startedAt)
   const passed = useGame((s) => s.passed)
   const turnIndex = useGame((s) => s.turnIndex)
@@ -58,6 +64,7 @@ export default function SkaiHud() {
   const [infoOpen, setInfoOpen] = useState(false)
   const [hintOpen, setHintOpen] = useState(false)
   const [crewOpen, setCrewOpen] = useState(false)
+  const [soundOpen, setSoundOpen] = useState(false)
   const [elapsed, setElapsed] = useState(0)
 
   const stageRef = useRef<HTMLElement | null>(null)
@@ -70,7 +77,13 @@ export default function SkaiHud() {
   const inLevel = phase === 'play' || phase === 'patrols'
 
   useEffect(() => setMuted(muted), [muted])
-  useEffect(() => setNarrationEnabled(narration), [narration])
+  // "Mute all sounds" means ALL of them: the recorded narrator plays through
+  // its own audio element, outside the Howler mute, so it is stopped here too.
+  useEffect(() => setNarrationEnabled(narration && !muted), [narration, muted])
+  // The speaker on the board says whether sound is on (waves) or off (a cross).
+  useEffect(() => {
+    stageRef.current?.toggleAttribute('data-muted', muted)
+  }, [muted, screen])
 
   // The mission clock counts DOWN from the 45-minute budget, the way every
   // SKAI board's hanging timer reads.
@@ -97,14 +110,28 @@ export default function SkaiHud() {
   const quiet = inLevel && !spotlight
 
   useEffect(() => {
-    if (!menuOpen && !infoOpen && !hintOpen && !crewOpen) return
+    if (!menuOpen && !infoOpen && !hintOpen && !crewOpen && !soundOpen) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
-      setMenuOpen(false); setInfoOpen(false); setHintOpen(false); setCrewOpen(false)
+      setMenuOpen(false); setInfoOpen(false); setHintOpen(false); setCrewOpen(false); setSoundOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [menuOpen, infoOpen, hintOpen, crewOpen])
+  }, [menuOpen, infoOpen, hintOpen, crewOpen, soundOpen])
+
+  // The audio menu is a drop-down, not a dialog: any press outside it closes it.
+  useEffect(() => {
+    if (!soundOpen) return
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as Element | null
+      if (target?.closest('.skai-sound-menu, .hit-sound')) return
+      setSoundOpen(false)
+    }
+    window.addEventListener('pointerdown', onDown, true)
+    return () => window.removeEventListener('pointerdown', onDown, true)
+  }, [soundOpen])
+  // A new screen closes it too.
+  useEffect(() => setSoundOpen(false), [phase])
 
   // ---- Paint the board and play the entrance --------------------------
   useEffect(() => {
@@ -154,6 +181,12 @@ export default function SkaiHud() {
     if (stageRef.current) paintRail(stageRef.current, done, total)
   }, [done, total])
 
+  // Only the seats someone is sitting in are drawn; the band re-centres on
+  // them (board.css reads data-crew).
+  useEffect(() => {
+    stageRef.current?.setAttribute('data-crew', String(players))
+  }, [players, screen])
+
   // Quiet chrome while the car is on the move.
   useEffect(() => {
     stageRef.current?.setAttribute('data-hud', quiet ? 'quiet' : 'full')
@@ -182,12 +215,11 @@ export default function SkaiHud() {
     onBlur: () => mark(part, 'is-hot', false),
   })
 
-  // Four chips on the band: the players, and — with a crew of three — the car
-  // itself takes the fourth seat. On the team delivery run every chip lights.
-  const chipName = (i: number) =>
-    i < players ? playerName(crew, i) : i === 3 ? (vehicleName || 'NV-1') : ''
-  const chipNow = (i: number) =>
-    driver === -1 ? i < players || players === 3 : i === driver
+  // One chip per player, and only per player: an empty seat is not drawn (a
+  // crew of three used to hand the fourth chip to the car, wearing a child's
+  // face). On the team delivery run every chip lights.
+  const seats = Array.from({ length: players }, (_, i) => i)
+  const chipNow = (i: number) => driver === -1 || i === driver
   const text = entry.text
   const onBack = () => {
     play('click')
@@ -200,42 +232,73 @@ export default function SkaiHud() {
       <div ref={boardRef} className="skai-board" aria-hidden="true" />
 
       {/* ---- live values in the artwork's own holes ------------------- */}
-      <div className="live live-timer" data-state={timerState} style={rectStyle(text.timer)} role="timer">
+      <div className="live live-timer" data-state={timerState} style={rectStyle(text.timer, pinStyle('timer'))} role="timer">
         {mmss(startedAt ? remain : budget)}
       </div>
-      <div className="live live-count" style={rectStyle(text.count)}>{done}/{total}</div>
-      {text.info && <div className="live live-info" style={rectStyle(text.info)}>i</div>}
-      <div className={`live live-cta ${ctaDisabled ? 'is-locked' : ''}`} style={rectStyle(text.cta)}>
+      <div className="live live-count" style={rectStyle(text.count, pinStyle('rail'))}>{done}/{total}</div>
+      {text.info && <div className="live live-info" style={rectStyle(text.info, pinStyle('info'))}>i</div>}
+      <div className={`live live-cta ${ctaDisabled ? 'is-locked' : ''}`} style={rectStyle(text.cta, pinStyle('cta'))}>
         {ctaLabel}
       </div>
-      {screen === 'multiplayer' && ([0, 1, 2, 3] as const).map((i) => (
+      {screen === 'multiplayer' && seats.map((i) => (
+        <img
+          key={`face-${i}`} className="live chip-face" data-seat={i} alt="" draggable={false}
+          src={PLAYER_FACES[faceFor(crewFaces, i)]}
+          style={{ ...boxStyle(seatFace(i)), ...pinStyle('chips') }}
+        />
+      ))}
+      {screen === 'multiplayer' && seats.map((i) => (
         <div
-          key={i}
+          key={`name-${i}`} data-seat={i}
           className={`live live-name ${chipNow(i) ? 'is-now' : ''}`}
-          style={rectStyle(text[`name${i}` as const])}
+          style={{ ...boxStyle(seatName(i)), ...pinStyle('chips') }}
         >
-          {chipName(i)}
+          <span>{playerName(crew, i)}</span>
         </div>
       ))}
 
       {/* ---- transparent controls over the artwork -------------------- */}
-      <button className="hud-hit hit-back" aria-label="Pause the mission" {...hitProps('back')} onClick={onBack} />
+      <button className="hud-hit hit-back" style={pinStyle('back')} aria-label="Pause the mission" {...hitProps('back')} onClick={onBack} />
       <button
-        className="hud-hit hit-info" aria-label={infoCopy.heading} {...hitProps('info')}
+        className="hud-hit hit-sound" style={{ ...boxStyle(entry.hits.sound), ...pinStyle('sound') }}
+        aria-label={muted ? 'Sound is off. Open the sound menu' : 'Sound menu'}
+        aria-haspopup="menu" aria-expanded={soundOpen} {...hitProps('sound')}
+        onClick={() => { play('click'); setSoundOpen((open) => !open) }}
+      />
+      <div
+        className={`skai-sound-menu ${soundOpen ? 'is-open' : ''}`} role="menu" aria-label="Sound"
+        aria-hidden={!soundOpen} style={{ ...boxStyle(entry.menu), ...pinStyle('sound') }}
+      >
+        <div className="skai-sound-art" aria-hidden="true" dangerouslySetInnerHTML={{ __html: SOUND_MENU_ART }} />
+        <button
+          role="menuitem" tabIndex={soundOpen ? 0 : -1} className="sound-row sound-row-replay"
+          aria-label="Replay narration" disabled={muted || !narration}
+          onClick={() => { play('click'); replayNarration(); setSoundOpen(false) }}
+        />
+        <button
+          role="menuitemcheckbox" tabIndex={soundOpen ? 0 : -1} aria-checked={muted}
+          className={`sound-row sound-row-mute ${muted ? 'is-on' : ''}`}
+          aria-label={muted ? 'Turn all sounds back on' : 'Mute all sounds'}
+          onClick={() => { toggleMute(); if (muted) play('click'); setSoundOpen(false) }}
+        />
+      </div>
+      <button
+        className="hud-hit hit-info" style={{ ...boxStyle(entry.hits.info), ...pinStyle('info') }}
+        aria-label={infoCopy.heading} {...hitProps('info')}
         onClick={() => { play('click'); setInfoOpen(true) }}
       />
-      <div className="hud-hit hit-timer" role="presentation" />
+      <div className="hud-hit hit-timer" style={pinStyle('timer')} role="presentation" />
       <div
-        className="hud-hit hit-rail" role="progressbar"
+        className="hud-hit hit-rail" style={pinStyle('rail')} role="progressbar"
         aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}
         aria-label={`${done} of ${total} challenges solved`}
       />
       <button
-        className="hud-hit hit-hint" aria-label="Hint and rulebook" {...hitProps('hint')}
+        className="hud-hit hit-hint" style={pinStyle('hint')} aria-label="Hint and rulebook" {...hitProps('hint')}
         onClick={() => { play('click'); setHintOpen(true) }}
       />
       <button
-        className="hud-hit hit-cta" aria-label={ctaLabel} disabled={ctaDisabled} {...hitProps('cta')}
+        className="hud-hit hit-cta" style={pinStyle('cta')} aria-label={ctaLabel} disabled={ctaDisabled} {...hitProps('cta')}
         onClick={() => { play('click'); stopNarration(); fireCta() }}
       />
 

@@ -7,7 +7,7 @@ import { useCta } from '../hud'
 import { play } from '../sound'
 import { narrate, stopNarration } from '../narration'
 import { PLAYER_FACES } from './CampaignSetup'
-import depot from '../assets/img/bg-title-depot.png'
+import depot from '../assets/img/bg-title-depot.jpg'
 
 const IconScooter = TILE_ICONS.SCOOTER
 const IconSlow = TILE_ICONS.SLOW
@@ -81,13 +81,13 @@ export default function Tutorial() {
               <span className="tr-if">
                 <b>IF</b>
                 <i className="tr-ico"><IconScooter /></i>
-                the sensors see <strong>a scooter ahead</strong>
+                <strong>Scooter ahead</strong>
               </span>
               <span className="tr-arrow" aria-hidden="true">→</span>
               <span className="tr-then">
                 <b>THEN</b>
                 <i className="tr-ico"><IconSlow /></i>
-                the car will <strong>go slowly around it</strong>
+                <strong>Go slowly</strong>
               </span>
             </div>
             <ul className="tutorial-parts">
@@ -104,15 +104,15 @@ export default function Tutorial() {
               <li>
                 <b>1</b>
                 <span>
-                  <em>IF</em> <i className="tr-ico"><IconScooter /></i> scooter ahead
-                  <em>THEN</em> <i className="tr-ico"><IconSlow /></i> go slowly around
+                  <em>IF</em> <i className="tr-ico"><IconScooter /></i> Scooter ahead
+                  <em>THEN</em> <i className="tr-ico"><IconSlow /></i> Go slowly
                 </span>
               </li>
               <li>
                 <b>2</b>
                 <span>
-                  <em>IF</em> <i className="tr-ico"><IconCrowd /></i> people crossing
-                  <em>THEN</em> <i className="tr-ico"><IconWait /></i> wait until clear
+                  <em>IF</em> <i className="tr-ico"><IconCrowd /></i> Many things moving
+                  <em>THEN</em> <i className="tr-ico"><IconWait /></i> Wait until clear
                 </span>
               </li>
             </ol>

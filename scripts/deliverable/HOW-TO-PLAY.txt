@@ -1,0 +1,34 @@
+THE NORTHLINE RUN
+A team game about IF / THEN rules. Ages 8-12. One shared screen.
+
+TO PLAY
+Double-click PLAY.bat, or open index.html in Chrome or Edge.
+Works offline. Keep the assets folder next to index.html.
+Fits any screen: laptop, tablet, phone or projector. Turn a phone sideways.
+
+1. BUILD YOUR CREW
+   Choose 2, 3 or 4 players. Type your names and pick a face.
+   Name the car. Everyone gets the same number of turns.
+
+2. LEARN THE RULE
+   A short tutorial shows how a rule works:
+   IF the car sees something, THEN it does something.
+
+3. SOLVE EACH SITUATION
+   The car stops when it meets something it has no rule for.
+   The IF tells you what it sees. Pick the THEN card you think is right.
+   Press TEST MY RULE and watch what happens.
+   Right: the rule goes into the car's rulebook. Pass to the next player.
+   Wrong: the car shows you why. Try again - no one loses a turn.
+
+4. FINISH TOGETHER
+   The last delivery is a team run. Then see your team report.
+
+BUTTONS ON SCREEN
+   Speaker (top right)  Replay the narration, or mute all sounds.
+   i (top right)        How to play.
+   Light bulb           A hint and the rulebook.
+   Back tab             Pause. Change players, names and faces.
+
+THINKING SKILLS
+   Look for the clue. Predict. Test. Fix the rule if it fails.

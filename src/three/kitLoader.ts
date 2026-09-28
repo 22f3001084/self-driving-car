@@ -1,5 +1,8 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import dracoWrapper from 'three/examples/jsm/libs/draco/gltf/draco_wasm_wrapper.js?raw'
+import { DRACO_WASM_BASE64 } from './dracoWasm'
 import { KIT_GLB_BASE64 } from './kitData'
 
 /**
@@ -24,12 +27,31 @@ function decode(base64: string) {
   return bytes.buffer
 }
 
+/**
+ * The kit is Draco-compressed (4.7 MB of geometry down to under 1 MB), and a
+ * stock DRACOLoader fetches its decoder from a URL — which a `file://` page
+ * cannot do. This one hands over the wrapper and the wasm that are already in
+ * the bundle. The worker it spins up is built from a Blob, which file:// allows.
+ */
+class InlineDracoLoader extends DRACOLoader {
+  _loadLibrary(url: string, responseType: string): Promise<string | ArrayBuffer> {
+    if (url === 'draco_wasm_wrapper.js') return Promise.resolve(dracoWrapper)
+    if (url === 'draco_decoder.wasm' && responseType === 'arraybuffer') {
+      return Promise.resolve(decode(DRACO_WASM_BASE64))
+    }
+    return Promise.reject(new Error(`the inlined Draco decoder has no ${url}`))
+  }
+}
+
 /** Parse the kit. Safe to call repeatedly; the work happens once. */
 export function loadKit(): Promise<void> {
   if (parts) return Promise.resolve()
   if (pending) return pending
   pending = new Promise<void>((resolve, reject) => {
+    const draco = new InlineDracoLoader()
+    draco.setDecoderConfig({ type: 'wasm' })
     const loader = new GLTFLoader()
+    loader.setDRACOLoader(draco)
     loader.parse(
       decode(KIT_GLB_BASE64),
       '',
@@ -46,6 +68,7 @@ export function loadKit(): Promise<void> {
           map.set(child.name, child)
         }
         parts = map
+        draco.dispose()
         resolve()
       },
       (error) => reject(error instanceof Error ? error : new Error(String(error))),

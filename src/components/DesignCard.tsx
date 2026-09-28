@@ -5,7 +5,7 @@ import { useGame } from '../store'
 import { play } from '../sound'
 import { narrate } from '../narration'
 import { IconArrowRight, IconSensor } from '../icons'
-import depot from '../assets/img/bg-title-depot.png'
+import depot from '../assets/img/bg-title-depot.jpg'
 
 /**
  * The design step: name the car, choose what it can see.

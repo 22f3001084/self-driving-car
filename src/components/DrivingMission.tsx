@@ -138,7 +138,12 @@ export default function DrivingMission({ level, onAdvance }: {
   const test = () => {
     if (selected === null || step !== 'choose' || pending.current) return
     pending.current = true; stopNarration()
-    setTestedLabel(labels[selected])
+    // The verdict names the rule in the SAME words the card used — the
+    // standard action labels — not the older per-hazard sentence ("Stop and
+    // wait" under a card that said "Stop the car").
+    setTestedLabel(needsSensor
+      ? labels[selected]
+      : actionWords(options[selected]?.actions ?? []).join(' + ') || labels[selected])
     if (needsSensor) {
       const option = SENSOR_CHOICES[selected]
       if (option.correct) {
@@ -296,6 +301,7 @@ export default function DrivingMission({ level, onAdvance }: {
                         key={label}
                         className="skai-choice"
                         data-actions={canon}
+                        data-count={Math.max(1, tokens.length)}
                         aria-pressed={selected === i}
                         aria-label={`Rule ${i + 1}: if ${needsSensor ? 'fitting sensors' : TILES[trigger]?.label ?? trigger}, then ${canon}`}
                         onClick={() => { setSelected(i); play('click') }}
@@ -305,16 +311,18 @@ export default function DrivingMission({ level, onAdvance }: {
                           <b>THEN</b>
                           {tokens.length === 0
                             ? <span>{label}</span>
-                            : tokens.map((token, at) => {
-                              const Icon = TILE_ICONS[token]
-                              return (
-                                <span className="choice-act" key={token}>
-                                  {at > 0 && <i className="choice-plus" aria-hidden="true">+</i>}
-                                  {Icon && <i className="choice-ico"><Icon /></i>}
-                                  <span>{TILES[token]?.label ?? token}</span>
-                                </span>
-                              )
-                            })}
+                            : <span className="choice-acts">
+                              {tokens.map((token, at) => {
+                                const Icon = TILE_ICONS[token]
+                                return [
+                                  at > 0 && <i className="choice-plus" key={`${token}+`} aria-hidden="true">+</i>,
+                                  <span className="choice-act" key={token}>
+                                    {Icon && <i className="choice-ico"><Icon /></i>}
+                                    <span>{TILES[token]?.label ?? token}</span>
+                                  </span>,
+                                ]
+                              })}
+                            </span>}
                         </span>
                         {/* the standard definition, only for the card being
                             considered — three at once was a wall of text */}

@@ -36,6 +36,28 @@
   --font-head: 'Chakra Petch', 'Segoe UI Semibold', system-ui, sans-serif;
 }
 
+/* =====================================================================
+   PINNED TO THE SCREEN — every piece of chrome keeps the edge it was drawn
+   against. choreograph() gives each part --ax / --ay (-1, 0 or 1: which
+   edge it lives nearest), the HUD gives its text and hit areas the same, and
+   `translate` — separate from the entrance animation's `transform` — moves
+   it out by the space beside the board. On a 16:9 screen that space is 0 and
+   nothing moves; on a 4:3 tablet the back tab still sits in the corner.
+   ===================================================================== */
+.stage [data-part],
+.stage .live,
+.stage .hud-hit,
+.stage .skai-sound-menu {
+  translate: calc(var(--ax, 0) * var(--bleed-x, 0px) + var(--shift-x, 0px)) calc(var(--ay, 0) * var(--bleed-y, 0px));
+}
+/* The export clips everything to the 1960 x 1102 frame; pinned parts live
+   outside it, so that clip goes and the viewport clips instead. */
+.skai-board > svg { overflow: visible; }
+.skai-board > svg > g[clip-path] { clip-path: none; }
+
+.skai-scrim,
+.skai-situation-scrim { inset: calc(-1 * var(--bleed-y, 0px)) calc(-1 * var(--bleed-x, 0px)) !important; }
+
 /* the delivered Figma board, painted edge to edge, exactly as exported */
 .skai-board {
   position: absolute;
@@ -94,7 +116,8 @@
 .stage [data-part="logo"],
 .stage [data-part="chips"],
 .stage [data-part="panel"],
-.stage .live-name { transition: opacity .55s ease; }
+.stage .live-name,
+.stage .chip-face { transition: opacity .55s ease; }
 
 .stage.is-settled:not([data-anim]) [data-part="deco-top"],
 .stage.is-settled:not([data-anim]) [data-part="deco-bottom"],
@@ -111,7 +134,8 @@
 .stage[data-hud="quiet"]:not([data-anim]) [data-part="timer"],
 .stage[data-hud="quiet"]:not([data-anim]) .live-timer,
 .stage[data-hud="quiet"]:not([data-anim]) .live-info,
-.stage[data-hud="quiet"]:not([data-anim]) .live-name { opacity: 0; }
+.stage[data-hud="quiet"]:not([data-anim]) .live-name,
+.stage[data-hud="quiet"]:not([data-anim]) .chip-face { opacity: 0; }
 .stage [data-part="info"], .stage [data-part="timer"],
 .stage .live-timer, .stage .live-info { transition: opacity .55s ease; }
 .stage[data-hud="quiet"] .hit-info { pointer-events: none; }
@@ -152,7 +176,45 @@ html.reduce-motion .stage[data-anim] .live { animation: none !important; }
 .live-cta.is-locked { color: rgba(255, 255, 255, 0.62); }
 .live-count { color: var(--lt-count); }
 .live-info  { color: var(--lt-info); }
-.live-name  { color: var(--lt-name); overflow: hidden; }
+/* =====================================================================
+   THE PLAYER BAND — one chip per player, nothing for an empty seat.
+   choreograph() tags every chip piece with its seat; the HUD sets
+   data-crew. Empty seats go, the underline that would run on from the last
+   chip into nothing goes, and the band re-centres on the chips that are left
+   (half a seat pitch, 283 px, per missing player).
+   ===================================================================== */
+.stage[data-crew="3"] { --chip-shift: 141.5px; }
+.stage[data-crew="2"] { --chip-shift: 283px; }
+.stage [data-part="chips"], .stage .chip-face, .stage .live-name { --shift-x: var(--chip-shift, 0px); }
+.stage[data-crew="3"] [data-seat="3"],
+.stage[data-crew="2"] [data-seat="2"],
+.stage[data-crew="2"] [data-seat="3"],
+.stage[data-crew="3"] [data-chip="line"][data-seat="2"],
+.stage[data-crew="2"] [data-chip="line"][data-seat="1"] { display: none; }
+/* The export's placeholder avatar (the same face on every chip) gives way to
+   the face each player picked. */
+.skai-board [data-chip="avatar"] { display: none; }
+.chip-face {
+  z-index: 20;
+  object-fit: cover;
+  object-position: 50% 14%;
+  border-radius: calc(4 * var(--px));
+  pointer-events: none;
+}
+/* Names fill the plate's text window, centred, at the 24 px floor, with a
+   full line box — the export's cap-height holes clipped every descender. */
+.live-name {
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 calc(4 * var(--px));
+  color: var(--lt-name);
+  font-size: calc(24 * var(--px));
+  line-height: 1.25;
+  overflow: hidden;
+}
+.live-name > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .live-name.is-now { color: var(--c-3); }
 .live.is-hidden { display: none; }
 
@@ -184,6 +246,63 @@ html.reduce-motion .stage[data-anim] .live { animation: none !important; }
 .hit-hint  { left: calc(60 * var(--px));   top: calc(960 * var(--px)); width: calc(104 * var(--px)); height: calc(104 * var(--px)); border-radius: 50%; }
 .hit-cta   { left: calc(742 * var(--px));  top: calc(908 * var(--px)); width: calc(476 * var(--px)); height: calc(138 * var(--px)); }
 .stage[data-skai-screen="multiplayer"] .hit-cta { top: calc(887 * var(--px)); }
+/* .hit-sound and .hit-info are placed inline from BOARDS[screen].hits — the
+   multiplayer board draws that cluster ~1.2x larger than the title board. */
+
+/* =====================================================================
+   THE SPEAKER — grafted from the SKAI AI & Data layout (graft-speaker.py).
+   Sound on: the drawn waves. Sound off: the waves give way to a cross, so
+   the speaker itself says the game is muted, on every screen.
+   ===================================================================== */
+.skai-board .sound-mute { opacity: 0; transition: opacity .2s ease; }
+.skai-board .sound-wave { transition: opacity .2s ease; }
+.stage[data-muted] .skai-board .sound-wave { opacity: 0; }
+.stage[data-muted] .skai-board .sound-mute { opacity: 1; }
+
+/* The audio menu: the layout's own drawn plate — Replay Narration and Mute All
+   Sounds — hanging from the speaker, opening the way the layout opens it. */
+.skai-sound-menu {
+  position: absolute;
+  z-index: 30;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform-origin: 50% 0;
+  transform: scale(.94) translateY(calc(-8 * var(--px)));
+  transition: opacity .16s ease, transform .2s cubic-bezier(.16, 1.2, .3, 1), visibility 0s linear .2s;
+  filter: drop-shadow(0 calc(10 * var(--px)) calc(18 * var(--px)) rgba(9, 28, 86, .35));
+}
+.skai-sound-menu.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition-delay: 0s;
+}
+.skai-sound-art, .skai-sound-art > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* The two drawn rows; boxes are the plate's rows in the cropped art. */
+.sound-row {
+  position: absolute;
+  left: 4%;
+  width: 92%;
+  height: 38%;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: calc(12 * var(--px));
+  transition: background .15s ease, box-shadow .15s ease;
+}
+.sound-row-replay { top: 11%; }
+.sound-row-mute { top: 53%; }
+.sound-row:hover:not(:disabled), .sound-row:focus-visible { background: rgba(255, 255, 255, .12); outline: none; }
+.sound-row:focus-visible { box-shadow: 0 0 0 calc(3 * var(--px)) #fff; }
+/* Muted: the row the child pressed stays lit in the skin's amber, so the menu
+   reads as a switch that is ON rather than a button that did nothing. */
+.sound-row-mute.is-on { box-shadow: inset 0 0 0 calc(3 * var(--px)) #FDDA76; background: rgba(253, 218, 118, .16); }
+/* Nothing to replay while sound is off. */
+.sound-row:disabled { cursor: default; background: rgba(9, 28, 86, .45); }
+html.reduce-motion .skai-sound-menu { transition: opacity .12s ease, visibility 0s linear .12s; transform: none; }
+html.reduce-motion .skai-sound-menu.is-open { transition-delay: 0s; }
 
 /* =====================================================================
    STAGE CONTENT — the area a mission screen owns, clear of every HUD part:
@@ -607,6 +726,7 @@ html.reduce-motion .stage[data-anim] .live { animation: none !important; }
 
 /* ---- The standard action vocabulary on a card -------------------------- */
 .skai-choice .choice-then { flex-wrap: wrap; }
+.skai-choice .choice-acts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: calc(10 * var(--px)); }
 .skai-choice .choice-act { display: inline-flex; align-items: center; gap: calc(10 * var(--px)); }
 .skai-choice .choice-plus {
   font-style: normal;
@@ -699,3 +819,60 @@ html.reduce-motion .stage[data-anim] .live { animation: none !important; }
   width: calc(46 * var(--px));
   height: calc(46 * var(--px));
 }
+
+/* ---- Choose step: the three THEN cards are the sheet -------------------
+   The cards used to be one short line each (icon + words) in a 210 px box,
+   which left most of the full-screen popup empty. They are now tiles: the
+   THEN tag on top, a big action icon, the action word under it — centred,
+   filling the height the popup gives them. Two-action cards set the two
+   actions side by side, joined by the +. */
+.skai-situation[data-step="choose"] { justify-content: flex-start; gap: calc(22 * var(--px)); }
+.skai-situation[data-step="choose"] .skai-choice-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
+.skai-situation[data-step="choose"] .skai-choice {
+  min-height: 0;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: calc(34 * var(--px)) calc(24 * var(--px)) calc(28 * var(--px));
+}
+.skai-situation[data-step="choose"] .skai-choice .choice-then {
+  flex-direction: column;
+  align-items: center;
+  gap: calc(22 * var(--px));
+  font-size: calc(34 * var(--px));
+}
+.skai-situation[data-step="choose"] .skai-choice .choice-then > b { font-size: calc(26 * var(--px)); }
+.skai-situation[data-step="choose"] .skai-choice .choice-acts {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: calc(14 * var(--px));
+}
+.skai-situation[data-step="choose"] .skai-choice .choice-act {
+  flex-direction: column;
+  align-items: center;
+  gap: calc(14 * var(--px));
+  min-width: 0;
+  flex: 1 1 0;
+}
+.skai-situation[data-step="choose"] .skai-choice .choice-act > span { max-width: 100%; overflow-wrap: anywhere; }
+.skai-situation[data-step="choose"] .skai-choice .choice-plus { align-self: center; margin: calc(40 * var(--px)) 0 0; font-size: calc(34 * var(--px)); }
+.skai-situation[data-step="choose"] .skai-choice .choice-ico {
+  width: calc(120 * var(--px));
+  height: calc(120 * var(--px));
+  border-radius: calc(22 * var(--px));
+}
+.skai-situation[data-step="choose"] .skai-choice .choice-ico .ico {
+  width: calc(84 * var(--px));
+  height: calc(84 * var(--px));
+}
+/* two actions share the width, so each icon is a little smaller */
+.skai-situation[data-step="choose"] .skai-choice[data-count="2"] .choice-ico { width: calc(96 * var(--px)); height: calc(96 * var(--px)); }
+.skai-situation[data-step="choose"] .skai-choice[data-count="2"] .choice-ico .ico { width: calc(66 * var(--px)); height: calc(66 * var(--px)); }
+.skai-situation[data-step="choose"] .skai-choice[data-count="2"] .choice-then { font-size: calc(28 * var(--px)); }
+.skai-situation[data-step="choose"] .skai-choice .choice-gloss { text-align: center; }

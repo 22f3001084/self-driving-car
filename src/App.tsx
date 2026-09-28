@@ -38,8 +38,8 @@ export default function App() {
   const reduced = useSettings((s) => s.reducedMotion)
 
   // The SKAI board is EXACTLY 1960 × 1102: it scales as one piece into the
-  // viewport and the themed ground carries the rest. No layout decision ever
-  // reads the viewport.
+  // viewport. No layout decision inside it reads the viewport; only the
+  // backdrop and the chrome reach out into the space beside it.
   useEffect(() => {
     const root = document.documentElement
 
@@ -47,11 +47,16 @@ export default function App() {
       const width = window.visualViewport?.width ?? window.innerWidth
       const height = window.visualViewport?.height ?? window.innerHeight
       // Small portrait devices retain the established landscape orientation.
-      const frame = fitViewport(width, height)
+      const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false
+      const frame = fitViewport(width, height, touch)
       root.style.setProperty('--stage-w', `${frame.width}px`)
       root.style.setProperty('--stage-h', `${frame.height}px`)
       root.style.setProperty('--stage-scale', String(frame.scale))
       root.style.setProperty('--stage-rotate', frame.rotated ? '90deg' : '0deg')
+      // the space beside the board: the scene bleeds into it, the chrome pins
+      // to its outer edge (see viewport.ts)
+      root.style.setProperty('--bleed-x', `${frame.bleedX.toFixed(2)}px`)
+      root.style.setProperty('--bleed-y', `${frame.bleedY.toFixed(2)}px`)
       root.dataset.layout = frame.rotated ? 'turned' : 'wide'
     }
     fit()

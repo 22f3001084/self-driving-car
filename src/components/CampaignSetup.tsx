@@ -1,7 +1,7 @@
 import { useGame } from '../store'
 import { useCta } from '../hud'
 import CrewPanel from './CrewPanel'
-import depot from '../assets/img/bg-title-depot.png'
+import depot from '../assets/img/bg-title-depot.jpg'
 
 // The faces moved in with the crew editor, but half the game imports them from
 // here, so this stays their address.

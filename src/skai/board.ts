@@ -9,6 +9,10 @@
  */
 import singleArt from '../assets/skai/board/single.svg?raw'
 import multiplayerArt from '../assets/skai/board/multiplayer.svg?raw'
+import soundMenuArt from '../assets/skai/board/sound-menu.svg?raw'
+
+/** The audio menu the speaker opens — the layout's own drawn plate. */
+export const SOUND_MENU_ART = soundMenuArt
 
 export const BOARD_W = 1960
 export const BOARD_H = 1102
@@ -20,16 +24,41 @@ export type Rect = [number, number, number, number]
 
 export interface BoardEntry {
   art: string
-  text: Partial<Record<'count' | 'timer' | 'cta' | 'info' | 'name0' | 'name1' | 'name2' | 'name3', Rect>>
+  text: Partial<Record<'count' | 'timer' | 'cta' | 'info', Rect>>
+  /** Hit areas that differ per board: the multiplayer board draws its
+   *  top-right cluster ~1.2x larger than the title board does. */
+  hits: Record<'sound' | 'info', Rect>
+  /** Where the audio menu hangs, just under the speaker. */
+  menu: Rect
 }
 
 /** A stripped rectangle is the glyph ink box (cap height). Chakra Petch caps
  *  measure ~0.72 em, so font-size = height / 0.72. */
 export const CAP_RATIO = 0.72
 
-/** Widen a name hole symmetrically so a typed 14-character name still centres
- *  on the chip instead of clipping at the Figma placeholder's width. */
-const widen = (r: Rect, w: number): Rect => [r[0] + r[2] / 2 - w / 2, r[1], w, r[3]]
+/**
+ * The player band on the multiplayer board: four seats, each an orange tab
+ * with an avatar square, a blue name plate and an underline running on to the
+ * next seat (measured with getBBox, scripts/tmp/bbox.mjs).
+ *
+ * The export's name holes were CAP-HEIGHT boxes 12.85 px tall at the top of
+ * each plate, which clipped every descender ("Diya" read "Diua") and set the
+ * names at 18 px. Names now take the plate's whole height, centred, at the
+ * 24 px floor.
+ */
+export const SEAT_TAB_X = [396, 679, 962, 1245] as const
+export const SEAT_PITCH = SEAT_TAB_X[1] - SEAT_TAB_X[0]
+/** The plate's text window: past the tab's overlap, short of the slanted end. */
+export const seatName = (i: number): Rect => [SEAT_TAB_X[i] + 84, 25, 146, 49]
+/** The avatar square inside the tab. */
+export const seatFace = (i: number): Rect => [SEAT_TAB_X[i] + 3, 33, 51, 51]
+
+/** Which seat a chip element belongs to, from its left edge. */
+export function seatOf(x: number) {
+  let seat = 0
+  SEAT_TAB_X.forEach((tab, i) => { if (x >= tab - 8) seat = i })
+  return seat
+}
 
 export const BOARDS: Record<SkaiScreen, BoardEntry> = {
   single: {
@@ -39,6 +68,10 @@ export const BOARDS: Record<SkaiScreen, BoardEntry> = {
       timer: [1794.99, 55.13, 91.43, 24.1],
       cta: [814.71, 975.7, 302.92, 23.8],
     },
+    // speaker hex 1588,34 and info hex 1672,34, both 66 px (graft-speaker.py)
+    hits: { sound: [1584, 30, 74, 75], info: [1668, 30, 74, 75] },
+    // the layout hangs the menu 54.5 px left of the speaker and 70 px down
+    menu: [1533.5, 104, 174, 166.5],
   },
   multiplayer: {
     art: multiplayerArt,
@@ -49,21 +82,45 @@ export const BOARDS: Record<SkaiScreen, BoardEntry> = {
       // The export's button read a baked "NEXT"; those glyphs are stripped from
       // our copy so the label is live, on the same baseline the single board uses.
       cta: [814.71, 975.7, 302.92, 23.8],
-      name0: widen([486.17, 35.15, 123.42, 12.85], 168),
-      name1: widen([794.09, 42.15, 51.9, 12.85], 168),
-      name2: widen([1051.09, 35.15, 82.61, 12.85], 168),
-      name3: widen([1335.17, 35.4, 74.84, 16.42], 168),
     },
+    // this board's info hex is 1609,27 at 79 px, so the speaker is 1.197x:
+    // 1508.5,27. (The old shared .hit-info box sat 59 px right of this hex.)
+    hits: { sound: [1504, 23, 87, 87], info: [1605, 23, 87, 87] },
+    menu: [1443.3, 110.8, 208.3, 199.3],
   },
 }
 
 /** The order the board assembles in, in milliseconds — plates first, the
  *  connector rules last so each rule slides out from behind its plate. */
 export const BEAT: Record<string, number> = {
-  board: 0, back: 0, logo: 40, chips: 70, info: 100,
+  board: 0, back: 0, logo: 40, chips: 70, sound: 90, info: 100,
   timer: 120, rail: 150, extra: 160, panel: 170, hint: 190,
   cta: 210, 'deco-top': 250, 'deco-bottom': 260,
 }
+/**
+ * Which screen edge each part of the chrome is drawn against: -1 left/top,
+ * 1 right/bottom, 0 centred on that axis. On a screen that is not 16:9 the
+ * part is moved out by the space beside the board (--bleed-x / --bleed-y), so
+ * the back tab stays in the corner and the rail stays on the right edge.
+ *
+ * By PART, not by each element's own position: the four player chips are one
+ * band and must move as one, even though the fourth sits right of centre.
+ */
+export const PIN: Record<string, readonly [number, number]> = {
+  back: [-1, -1], logo: [-1, -1],
+  chips: [0, -1], panel: [0, -1],
+  sound: [1, -1], info: [1, -1], timer: [1, -1], 'deco-top': [1, -1],
+  rail: [1, 0],
+  hint: [-1, 1],
+  cta: [0, 1], 'deco-bottom': [0, 1], extra: [0, 1],
+}
+
+/** The same pin as CSS custom properties, for the HTML laid over the art. */
+export function pinStyle(part: string): Record<string, number> {
+  const [ax, ay] = PIN[part] ?? [0, 0]
+  return { '--ax': ax, '--ay': ay }
+}
+
 export const LIVE_BEAT = 300
 export const CONTENT_BEAT = 330
 export const LAST_BEAT = 360
@@ -95,11 +152,22 @@ export function choreograph(stage: HTMLElement) {
   parts.forEach((node) => {
     const name = node.getAttribute('data-part') ?? ''
     node.style.setProperty('--d', `${BEAT[name] ?? 160}ms`)
+    const [ax, ay] = PIN[name] ?? [0, 0]
+    node.style.setProperty('--ax', String(ax))
+    node.style.setProperty('--ay', String(ay))
     let bbox: DOMRect | { x: number; y: number; width: number; height: number } | null = null
     try {
       const b = node.getBBox?.()
       if (b && b.width) bbox = b
     } catch { /* not in the render tree yet */ }
+    if (name === 'chips' && bbox) {
+      node.setAttribute('data-seat', String(seatOf(bbox.x)))
+      // the baked placeholder avatars (pattern fills) give way to the
+      // players' own faces; the thin underlines run on to the next seat
+      const fill = node.getAttribute('fill') ?? ''
+      if (fill.startsWith('url(#pattern')) node.setAttribute('data-chip', 'avatar')
+      else if (!fill && bbox.height < 32) node.setAttribute('data-chip', 'line')
+    }
     if (name === 'deco-top' || name === 'deco-bottom') {
       // a rule left of centre grows leftwards, out from behind the button
       const rcx = bbox ? bbox.x + bbox.width / 2 : BOARD_MID

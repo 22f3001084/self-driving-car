@@ -4,7 +4,7 @@ import { mission } from '../content'
 import { startAmbient } from '../sound'
 import { initNarration } from '../narration'
 import { useCta } from '../hud'
-import titleBg from '../assets/img/bg-title-depot.png'
+import titleBg from '../assets/img/bg-title-depot.jpg'
 import flatMid from '../assets/img/bg2d-mid.jpg'
 
 /** The flat edition opens on ITS OWN street, not the 3D depot render — the
@@ -53,7 +53,7 @@ export default function Title() {
         transition={{ duration: 0.6, ease: 'easeOut' }}
       >
         <h1 className="title-name">{mission.name}</h1>
-        <p className="title-sub">Grab your crew — three or four players. One smart car. A city that needs your help.</p>
+        <p className="title-sub">Grab your crew — two to four players. One smart car. A city that needs your help.</p>
       </motion.div>
     </div>
   )

@@ -221,6 +221,9 @@ h1, h2, h3, h4, h5, h6 {
 .app {
   position: fixed;
   inset: 0;
+  /* the viewport is the one clip: the scene and chrome reach out past the
+     board into the space beside it, and stop at the screen edge */
+  overflow: hidden;
   /* The themed ground the board is letterboxed into — the deck's two radial
      glows over deep navy, exactly as engineering.html lights its frame. */
   background:
@@ -253,22 +256,48 @@ h1, h2, h3, h4, h5, h6 {
   height: var(--stage-h);
   transform: rotate(var(--stage-rotate)) scale(var(--stage-scale));
   transform-origin: 50% 50%;
-  overflow: hidden;
-  background: var(--bg);
+  /* NOT hidden: each screen's backdrop, the street and the chrome extend past
+     the board by --bleed-x / --bleed-y, so there are no dead bars on a screen
+     that is not 16:9. .app clips at the viewport instead. */
+  overflow: visible;
+  background: transparent;
   box-shadow: none;
 }
 
 .shell { position: absolute; inset: 0; }
 .stage-body { position: absolute; inset: 0; }
 .phase { position: absolute; inset: 0; }
-.screen { position: absolute; inset: 0; overflow: hidden; background: var(--bg); }
+/* A screen keeps its board-sized box — every child is laid out against it at
+   fixed board px — but its BACKDROP bleeds past the board to the screen edges.
+   The screen's own background image (set inline) is kept, but painted at size
+   0; the ::before inherits it and paints it, cover-fit, over the larger box. */
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  isolation: isolate;
+  background-color: transparent;
+  background-size: 0 0 !important;
+}
+.screen::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: calc(-1 * var(--bleed-y, 0px)) calc(-1 * var(--bleed-x, 0px));
+  pointer-events: none;
+  background-color: var(--bg);
+  background-image: inherit;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
 
 /* The photographic grounds: held down under a navy wash so the chrome above
    them always has the same contrast, whichever photo it is. */
 .screen-scrim,
 .title-scrim {
   position: absolute;
-  inset: 0;
+  inset: calc(-1 * var(--bleed-y, 0px)) calc(-1 * var(--bleed-x, 0px));
   pointer-events: none;
   background:
     radial-gradient(120% 90% at 50% -10%, rgba(31, 111, 208, 0.28) 0%, transparent 60%),

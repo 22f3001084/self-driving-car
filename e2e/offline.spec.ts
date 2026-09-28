@@ -14,7 +14,11 @@ import path from 'node:path'
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const PACKAGE = String(pathToFileURL(path.resolve(here, '..', '..', 'index.html')))
+// OFFLINE_PACKAGE points it at another packaged copy — the clean deliverable
+// from scripts/package-clean.mjs, say — instead of the BE6 delivery root.
+const PACKAGE = String(pathToFileURL(process.env.OFFLINE_PACKAGE
+  ? path.resolve(process.env.OFFLINE_PACKAGE, 'index.html')
+  : path.resolve(here, '..', '..', 'index.html')))
 
 test('the offline package boots, renders the board and 3D, and plays a stop', async ({ page }) => {
   test.setTimeout(300_000)
@@ -44,6 +48,9 @@ test('the offline package boots, renders the board and 3D, and plays a stop', as
 
   // The 3D street must be live off file:// — no fallback, real WebGL.
   await expect(page.locator('.scene-canvas')).toBeVisible()
+  // ...and the kit decoded: the Draco decoder is inlined and runs in a Blob
+  // worker, which is the one part of the 3D street that could break off disk.
+  await expect(page.locator('.scene-fallback')).toHaveCount(0)
   await expect(page.locator('.scene-fallback')).toHaveCount(0)
   const hasGl = await page.locator('.scene-canvas').evaluate((element) => {
     const node = element as HTMLCanvasElement

@@ -114,10 +114,16 @@ export function stopNarration() {
 /** Speak a line. A recorded clip (matched by `voKey` or by the exact text)
     plays the studio voice; anything else falls back to the speech engine.
     By default it replaces anything already queued. */
+/** The last line narrated, so the speaker menu's "Replay narration" can say
+    it again. Kept even while narration is off, so turning it back on and
+    pressing replay still has something to say. */
+let lastLine: { text: string; voKey?: string } | null = null
+
 export function narrate(
   text: string,
   { interrupt = true, voKey }: { interrupt?: boolean; voKey?: string } = {},
 ) {
+  if (text) lastLine = { text, voKey }
   if (!enabled || !text) return
   const clip = (voKey && VO_URLS[voKey]) || VO_BY_TEXT[normalize(text)]
   if (clip) {
@@ -150,4 +156,11 @@ export function narrate(
   } catch {
     /* narration is an enhancement — never let it break the mission */
   }
+}
+
+/** Say the last line again, from the start. False if nothing has been said. */
+export function replayNarration(): boolean {
+  if (!lastLine || !enabled) return false
+  narrate(lastLine.text, { voKey: lastLine.voKey })
+  return true
 }

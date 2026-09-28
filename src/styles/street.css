@@ -17,7 +17,14 @@
    ========================================================================= */
 
 .act-screen { background: var(--bg); }
-.act-scene { position: absolute; inset: 0; overflow: hidden; }
+/* The street fills the whole screen, past the board on any aspect ratio: a
+   wider screen simply sees more road either side (the camera keeps its
+   vertical field, so the car's framing does not change). */
+.act-scene {
+  position: absolute;
+  inset: calc(-1 * var(--bleed-y, 0px)) calc(-1 * var(--bleed-x, 0px));
+  overflow: hidden;
+}
 
 /* =========================================================================
    The policy key and the restart key — top right, always reachable
