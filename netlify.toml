@@ -1,0 +1,9 @@
+# Netlify: connect this folder as the site root (or run `npm run build:site`
+# locally and drag the `site/` folder onto https://app.netlify.com/drop).
+# 3D edition serves at /, the flat 2D edition at /2d/.
+[build]
+  command = "npm run build:site"
+  publish = "site"
+
+[build.environment]
+  NODE_VERSION = "20"

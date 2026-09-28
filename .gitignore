@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output — regenerate with `npm run build`, `npm run build:site`
+dist/
+dist2d/
+site/
+tsconfig.tsbuildinfo
+
+# Test and probe artefacts
+test-results/
+playwright-report/
+tmp/
+scripts/tmp/
+*.log
+
+# Generated Blender output. `blender/*.py` rebuilds it; the folder also holds
+# the manufacturer's own brochure, which is not ours to redistribute.
+blender/out/
+blender/__pycache__/
+
+# Screenshot dumps from the audit and storyboard runs — large, and regenerated
+# by the harnesses in scripts/.
+docs/audit/
+docs/storyboard/
+
+# Stray captures
+shot.png

@@ -1,0 +1,514 @@
+/* =========================================================================
+   SKAI Space — the board.
+
+   The UI uses a minimum 1920 x 1080 coordinate space. The scene extends to
+   the viewport aspect ratio, so every edge shows the game instead of bars.
+   UI type and controls scale together without stretching or cropping.
+   A portrait phone under 820px rotates the board rather than restacking it.
+
+   ONE IDEA RUNS THE LOOK, and it is not invented here: it is lifted from the
+   SKAI deck's own Figma frame (file iJdgDiZbq1olpbazhfncqZ, page "Electronic
+   and engineering", frames 24:2153 and 80:240). Every colour, radius, bolt and
+   rosette below is measured off that export, not eyeballed:
+
+     THE PLATE      a rounded slab on the #154777 → #2784DD diagonal, a 2px
+                    white outline, and four slotted screw heads at the corners
+                    (12px #D9D9D9 disc, 1.33 x 8 #48515D slot — the deck calls
+                    the part "Volt"). Frame node 24:2249 + 24:2250.
+     THE ROSETTE    every round key sits in a white twelve-tooth cog. The cogs
+                    are the deck's own vectors, cut out into src/assets/skai/.
+     THE AMBER      #FCA01B is the workshop colour: the hanging timer sign and
+                    the hatched progress rail, and nothing else.
+     THE TYPE       Fredoka One for display (the deck sets "LET'S INVESTIGATE"
+                    and "35:00" in it), Chakra Petch for numerals, Poppins for
+                    body — the page is literally named font-pairing-fredoka-
+                    poppins.
+
+   What is NOT taken from the deck: its own player chrome — the world pills,
+   the dot bar, the caption. That is the slide runner's furniture, not the
+   design system.
+   ========================================================================= */
+
+:root {
+  /* ---- The board ------------------------------------------------------ */
+  --stage-w: 1960px;
+  --stage-h: 1102px;
+  --stage-scale: 1;
+  --stage-rotate: 0deg;
+
+  /* ---- Ground, verbatim from the deck --------------------------------- */
+  --bg: #0b2545;
+  --glow: rgba(31, 111, 208, 0.58);
+  --glow2: rgba(247, 148, 29, 0.30);
+
+  /* ---- The plate family (frame nodes 24:2249 / 24:2250) --------------- */
+  --plate-lit: #2784dd;      /* gradient g1, stop 1 */
+  --plate-deep: #154777;     /* gradient g1, stop 0 */
+  --plate-ink: #19548d;      /* the deck's deepest blue, for big panels */
+  --plate-line: #ffffff;     /* every plate is outlined in white, 2px */
+  --bolt-face: #d9d9d9;
+  --bolt-slot: #48515d;
+
+  /* ---- The workshop colours ------------------------------------------ */
+  --amber: #fca01b;          /* timer sign, progress rail */
+  --amber-mid: #ea8e42;      /* its tabs and hooks */
+  --amber-deep: #d86f21;
+  --yellow: #fee714;         /* the hint bulb */
+  --cream: #f7f7ef;          /* plate face / hatch fill */
+  --ink: #333333;            /* copy on cream */
+  --red: #d13735;
+
+  /* ---- Ink on the blue ------------------------------------------------ */
+  --paper: #ffffff;
+  --paper-2: rgba(255, 255, 255, 0.78);
+  --paper-3: rgba(255, 255, 255, 0.56);
+
+  /* ---- Feedback ------------------------------------------------------- */
+  --good: #45cdb5;
+  --good-deep: #096b5b;
+  --warn: var(--amber);
+  --bad: var(--red);
+  --sky: #7fb2ee;
+
+  /* ---- Scene materials (the painted street; not brand colour) --------- */
+  --asphalt-1: #5b6472;
+  --asphalt-2: #4d5765;
+  --asphalt-3: #414b58;
+  --asphalt-4: #39424e;
+  --kerb-1: #c3ceda;
+  --kerb-2: #8b98a7;
+  --kerb-edge: #9aa6b3;
+  --walk-1: #7f8b99;
+  --walk-2: #67727f;
+  --sky-1: #9ec2e2;
+  --sky-2: #dbe8f4;
+  --brake: #ff5a2b;
+
+  /* ---- Names the older sheets still reach for ------------------------- */
+  --white: #ffffff;
+  --accent: var(--amber);
+  --accent-lift: #ffbf63;
+  --accent-deep: var(--amber-deep);
+  --deep-navy: #0d2b52;
+  --navy: var(--plate-deep);
+  --royal-blue: var(--plate-lit);
+  --light-sky: #b8d8f4;
+  --orange: var(--amber);
+  --mint: var(--good);
+  --color-primary: var(--sky);
+  --color-primary-dark: var(--bg);
+  --color-cta: var(--amber);
+  --color-success: var(--good);
+  --text-primary: var(--paper);
+  --text-secondary: var(--paper-2);
+  --ink-2: var(--paper-2);
+  --ink-3: var(--paper-3);
+  --line: rgba(255, 255, 255, 0.28);
+  --line-soft: rgba(255, 255, 255, 0.16);
+  --line-hard: rgba(255, 255, 255, 0.6);
+  --glass: linear-gradient(197deg, #1c5c9c 0%, #123c68 100%);
+  --glass-hi: linear-gradient(197deg, #2069b4 0%, #14446f 100%);
+  --glass-lo: rgba(255, 255, 255, 0.09);
+  --blur: blur(0px);
+
+  /* ---- The bolt, drawn once ------------------------------------------- */
+  --bolt-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='6' fill='%23D9D9D9'/%3E%3Crect x='5.33' y='2' width='1.34' height='8' rx='.6' fill='%2348515D'/%3E%3C/svg%3E");
+  /* Four screws, one per corner. Stated as background layers rather than as a
+     pseudo-element so any surface can wear them without needing a spare
+     ::before or ::after of its own. */
+  --bolts:
+    var(--bolt-img) no-repeat left 13px top 13px / 12px 12px,
+    var(--bolt-img) no-repeat right 13px top 13px / 12px 12px,
+    var(--bolt-img) no-repeat left 13px bottom 13px / 12px 12px,
+    var(--bolt-img) no-repeat right 13px bottom 13px / 12px 12px;
+  --bolts-sm:
+    var(--bolt-img) no-repeat left 8px top 8px / 8px 8px,
+    var(--bolt-img) no-repeat right 8px top 8px / 8px 8px,
+    var(--bolt-img) no-repeat left 8px bottom 8px / 8px 8px,
+    var(--bolt-img) no-repeat right 8px bottom 8px / 8px 8px;
+
+  /* ---- Type ----------------------------------------------------------- */
+  /* The AI & Data skin of the SKAI Layout System: Chakra Petch for display
+     and numerals, Inter for body — from the Figma "Fonts" boards. */
+  --font-display: 'Chakra Petch', 'Segoe UI Semibold', system-ui, sans-serif;
+  --font-num: 'Chakra Petch', 'Segoe UI Semibold', system-ui, sans-serif;
+  --font-body: 'Inter', 'Poppins', 'Segoe UI', Roboto, system-ui, sans-serif;
+
+  /* 1.5rem is the floor and it is absolute: on a fixed board it is 24px. */
+  --t-h1: 4.25rem;
+  --t-h2: 3rem;
+  --t-h3: 2.375rem;
+  --t-h4: 2.125rem;
+  --t-h5: 1.875rem;
+  --t-h6: 1.625rem;
+  --t-body: 1.5rem;
+
+  /* ---- Rhythm --------------------------------------------------------- */
+  --r-pill: 999px;
+  --r-plate: 19px;           /* Rectangle 158's own radius */
+  --r-panel: 22px;
+  --r-card: 16px;
+  --r-key: 12px;
+  --pad: 44px;
+  --gap: 24px;
+  --hud-h: 64px;
+
+  --shadow-plate: 0 9px 0 rgba(3, 14, 34, 0.5), 0 24px 48px rgba(2, 8, 22, 0.5);
+  --shadow-panel: 0 12px 0 rgba(3, 14, 34, 0.45), 0 34px 74px rgba(2, 8, 22, 0.55);
+  --shadow-pill: 0 6px 0 rgba(3, 14, 34, 0.45), 0 16px 30px rgba(2, 8, 22, 0.45);
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-land: cubic-bezier(0.16, 1.24, 0.32, 1);
+}
+
+* { box-sizing: border-box; }
+*, *::before, *::after { min-width: 0; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+/* `position: fixed` on the body is what kills iOS rubber-banding and any
+   chance of the document itself scrolling. */
+body {
+  position: fixed;
+  inset: 0;
+  background: #060d1e;
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-size: var(--t-body);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Belt and braces: no scrollbar is ever drawn anywhere. Nothing in the game
+   is allowed to need one, and this makes a regression visible as clipping
+   rather than as a bar appearing. */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; }
+button:disabled { cursor: not-allowed; }
+h1, h2, h3, p, ol, ul, dl, dd, fieldset, legend { margin: 0; }
+fieldset { border: 0; padding: 0; }
+ol, ul { padding: 0; list-style: none; }
+img { user-select: none; -webkit-user-drag: none; max-width: 100%; }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: 0;
+  color: var(--paper);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* =========================================================================
+   The board
+   ========================================================================= */
+
+.app {
+  position: fixed;
+  inset: 0;
+  /* The themed ground the board is letterboxed into — the deck's two radial
+     glows over deep navy, exactly as engineering.html lights its frame. */
+  background:
+    radial-gradient(125% 95% at 50% -8%, var(--glow) 0%, transparent 62%),
+    radial-gradient(100% 80% at 50% 108%, var(--glow2) 0%, transparent 58%),
+    var(--bg);
+}
+
+/* The vignette that makes the ground read as depth rather than a flat wash.
+   Behind the board (z-index 0) so it never dims the game itself. */
+.app::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 50%, transparent 48%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+/* Centred absolutely, NOT by a grid: a grid track grows to the 1920 board and
+   then starts at the container's left edge, which parks an oversized board off
+   to one side instead of in the middle. `translate` runs before `transform`,
+   so the board is centred first and then scaled about its own centre. */
+.stage {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: var(--stage-w);
+  height: var(--stage-h);
+  transform: rotate(var(--stage-rotate)) scale(var(--stage-scale));
+  transform-origin: 50% 50%;
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow: none;
+}
+
+.shell { position: absolute; inset: 0; }
+.stage-body { position: absolute; inset: 0; }
+.phase { position: absolute; inset: 0; }
+.screen { position: absolute; inset: 0; overflow: hidden; background: var(--bg); }
+
+/* The photographic grounds: held down under a navy wash so the chrome above
+   them always has the same contrast, whichever photo it is. */
+.screen-scrim,
+.title-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(31, 111, 208, 0.28) 0%, transparent 60%),
+    radial-gradient(100% 80% at 50% 110%, rgba(247, 148, 29, 0.14) 0%, transparent 58%),
+    linear-gradient(180deg, rgba(6, 18, 42, 0.38) 0%, rgba(6, 18, 42, 0.52) 100%);
+}
+
+/* =========================================================================
+   Motion — the deck's flight paths.
+   Elements park off-board in the direction they arrive from and land with
+   one overshoot. --i staggers a group.
+   ========================================================================= */
+
+@keyframes land-up   { from { opacity: 0; transform: translateY(46px) scale(.97); } }
+@keyframes land-down { from { opacity: 0; transform: translateY(-38px); } }
+@keyframes land-left { from { opacity: 0; transform: translateX(-52px); } }
+@keyframes land-in   { from { opacity: 0; transform: scale(.94); } }
+@keyframes bob       { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+
+.fly      { animation: land-up 460ms var(--ease-land) both; animation-delay: calc(var(--i, 0) * 55ms); }
+.fly-down { animation-name: land-down; }
+.fly-left { animation-name: land-left; }
+.fly-in   { animation-name: land-in; }
+
+html.reduce-motion * { animation-duration: 1ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; }
+
+/* =========================================================================
+   Primitives — the plate, the rosette, the sign
+
+   Three parts do all the work, and each is measured off the deck's frame:
+     .plate    a bolted slab            (Rectangle 158 + the four "Volt"s)
+     .rosette  a key inside a white cog (Group 2593 / 2597 / 1171279133)
+     the sign  an amber hanging plate   (Group 1171279095)
+   ========================================================================= */
+
+/* ---- The plate: the one surface -------------------------------------- */
+.panel,
+.plate {
+  position: relative;
+  background: var(--bolts), linear-gradient(197deg, var(--plate-lit) 0%, var(--plate-deep) 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-panel);
+  color: var(--paper);
+  overflow: hidden;
+}
+
+/* A panel big enough to carry a CTA is pitched DEEPER than the CTA is, so the
+   deck's own blue key still reads as the loudest thing standing on it. */
+.panel {
+  background: var(--bolts), linear-gradient(197deg, #16457a 0%, #0e2f57 100%);
+  border-radius: var(--r-panel);
+}
+
+/* ---- Pill: a plain label, no bolts (a screw on a 40px chip is a smudge) - */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--hud-h);
+  padding: 0 24px;
+  background: linear-gradient(197deg, var(--plate-lit) 0%, var(--plate-deep) 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-pill);
+  font-family: var(--font-display);
+  font-size: var(--t-h6);
+  font-weight: 400;
+  color: var(--paper);
+  white-space: nowrap;
+}
+
+/* ---- Buttons ---------------------------------------------------------- */
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 70px;
+  padding: 0 32px;
+  font-family: var(--font-display);
+  font-size: var(--t-h6);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--paper);
+  background: linear-gradient(197deg, #1c5c9c 0%, #123c68 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-pill);
+  transition: transform .1s var(--ease), opacity .16s var(--ease);
+  white-space: nowrap;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 rgba(3, 14, 34, 0.45), 0 8px 18px rgba(2, 8, 22, 0.45);
+}
+.btn:disabled { opacity: 0.45; }
+.btn-ico { display: inline-flex; }
+.btn-ico .ico,
+.btn .ico { width: 28px; height: 28px; }
+.btn.sm { height: 56px; padding: 0 22px; font-size: var(--t-body); border-radius: var(--r-card); }
+.btn.xl { height: 92px; padding: 0 46px; font-size: var(--t-h5); }
+.btn.wide { width: 100%; }
+
+/* THE key. Rectangle 158 + Group 1171279078, to the pixel: a 453 x 133 plate
+   on the g1 diagonal, a 2px white outline, four slotted screws, and a white
+   Fredoka One label. */
+.btn.primary {
+  min-width: 330px;
+  color: var(--paper);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: var(--bolts), linear-gradient(197deg, var(--plate-lit) 0%, var(--plate-deep) 100%);
+  border: 2px solid var(--plate-line);
+  box-shadow: var(--shadow-plate);
+}
+.btn.primary:disabled {
+  background: var(--bolts), linear-gradient(197deg, #4d5765 0%, #333a45 100%);
+  color: rgba(255, 255, 255, 0.6);
+  opacity: 1;
+}
+.btn.primary .ico { color: var(--paper); }
+
+/* Amber: the workshop key. Used where the deck uses amber — for a step that
+   moves the mission on, rather than a step inside it. */
+.btn.accent {
+  color: #2b1400;
+  background: var(--bolts), linear-gradient(197deg, #ffbf63 0%, var(--amber) 60%, var(--amber-deep) 100%);
+  border: 2px solid var(--plate-line);
+}
+.btn.accent .ico { color: #2b1400; }
+.btn.accent:disabled {
+  color: rgba(255, 255, 255, 0.55);
+  background: var(--bolts), linear-gradient(197deg, #4d5765 0%, #333a45 100%);
+  opacity: 1;
+}
+.btn.accent:disabled .ico { color: rgba(255, 255, 255, 0.55); }
+
+/* Ghost: a plate with no bolts and no fill — the quiet way back. */
+.btn.ghost {
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow: none;
+  color: var(--paper);
+}
+.btn.danger { color: #ffb3aa; border-color: rgba(209, 55, 53, 0.8); }
+
+/* Keyboard focus is the one thing that MUST paint — it is how the game is
+   played without a mouse. The pointer still changes nothing. */
+:focus-visible { outline: 3px solid var(--amber); outline-offset: 4px; }
+:focus:not(:focus-visible) { outline: none; }
+
+/* =========================================================================
+   Modals — pause and info
+   ========================================================================= */
+
+.modal-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: var(--pad);
+  background: rgba(5, 17, 38, 0.76);
+}
+.modal-panel {
+  width: min(760px, 100%);
+  max-height: 100%;
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bolts), linear-gradient(197deg, #16457a 0%, #0e2f57 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-panel);
+  color: var(--paper);
+  overflow: hidden;
+}
+.modal-panel h2 { font-size: var(--t-h3); }
+.modal-sub { font-size: var(--t-body); color: var(--paper-2); margin-bottom: 6px; }
+
+.panel-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 20px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--r-key);
+  font-size: var(--t-body);
+  color: var(--paper);
+}
+.panel-row em { font-style: normal; font-size: var(--t-body); color: var(--paper-3); }
+.panel-row.danger { color: #ffb3aa; }
+.panel-ico { display: inline-flex; justify-content: center; font-size: var(--t-h6); }
+.panel-ico .ico { width: 28px; height: 28px; }
+
+.panel-mixer {
+  display: grid;
+  gap: 8px;
+  padding: 14px 20px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--r-key);
+}
+.mixer-row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 16px; font-size: var(--t-body); }
+.mixer-row input { width: 100%; accent-color: var(--amber); }
+
+.info-list { display: grid; gap: 10px; counter-reset: n; }
+.info-list li { display: grid; grid-template-columns: 38px 1fr; gap: 14px; font-size: var(--t-body); color: var(--paper-2); }
+.info-list li::before {
+  counter-increment: n; content: counter(n);
+  display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--amber); color: #2b1400;
+  font-family: var(--font-num); font-weight: 700; font-size: var(--t-body);
+}
+.info-kw { display: grid; gap: 10px; margin-top: 4px; }
+.info-kw li { display: flex; align-items: baseline; gap: 14px; font-size: var(--t-body); color: var(--paper-2); }
+.info-kw b {
+  flex: none; padding: 3px 14px; border-radius: var(--r-key);
+  background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.3);
+  font-family: var(--font-num); font-size: var(--t-body); color: var(--paper);
+}
+
+/* =========================================================================
+   Print — the report, on paper, in ink
+   ========================================================================= */
+@media print {
+  body { position: static; display: block; background: #fff; color: #111; }
+  .app { position: static; display: block; background: #fff; }
+  .app::before { display: none; }
+  .stage { transform: none; width: auto; height: auto; box-shadow: none; background: #fff; }
+  .hud, .no-print, .screen-scrim, .level-plate, .title-scrim { display: none !important; }
+  .screen, .phase, .stage-body, .shell { position: static; }
+  .panel { background: #fff; border: 1px solid #ccc; box-shadow: none; backdrop-filter: none; color: #111; }
+  .report-step { display: block !important; opacity: 1 !important; position: static !important; }
+  h1, h2, h3 { color: #111; }
+}

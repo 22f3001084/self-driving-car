@@ -1,0 +1,701 @@
+/* =========================================================================
+   SKAI Layout System · AI & Data board — the runtime sheet.
+
+   Ported from the layout system's skai-ui.css v3.0. The board IS the delivered
+   Figma vector (assets/skai/board/*.svg), inlined edge to edge at 1960 × 1102.
+   Nothing in the HUD is redrawn in CSS: on top of the art sit only
+     · .live-*   — real text in the holes the glyph-stripper left
+     · .hud-hit  — transparent hit areas over the artwork's controls
+   The game's stage is already a fixed 1960 × 1102 board scaled as one piece,
+   so inside it one design pixel is one CSS pixel: --px is 1px, and every
+   measure below is written exactly as the layout system writes it.
+   ========================================================================= */
+
+.stage { --px: 1px; }
+
+/* ---- AI & Data skin: colour tokens only, the art carries the shapes ----- */
+.stage {
+  --c-1: #0A2D94;
+  --c-2: #F5A524;
+  --c-3: #FEE714;
+  --c-panel: #091C56;
+  --lt-timer: #FFFFFF;
+  --lt-count: #F5A524;
+  --lt-cta: #FFFFFF;
+  --lt-info: #FFFFFF;
+  --lt-name: #FFFFFF;
+  /* ink for the light panels: the popups and sheets are white plates with the
+     skin's orange trim, like the artwork's own rail and back plate */
+  --pop-paper: #FDFDFF;
+  --pop-card: #F4F7FF;
+  --pop-ink: #10194A;
+  --pop-ink-2: #3B4470;
+  --pop-ink-3: #55608F;
+  --pop-amber-ink: #B36A00;
+  --pop-line: #C9D2F2;
+  --font-head: 'Chakra Petch', 'Segoe UI Semibold', system-ui, sans-serif;
+}
+
+/* the delivered Figma board, painted edge to edge, exactly as exported */
+.skai-board {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.skai-board > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* =====================================================================
+   ENTRANCE / EXIT — every tagged part carries its own delay (--d) so the
+   board assembles in one readable sweep; leaving reverses the sequence.
+   ===================================================================== */
+.stage [data-part],
+.stage .live { transform-box: fill-box; transform-origin: 50% 50%; }
+
+.stage[data-anim] [data-part],
+.stage[data-anim] .live {
+  animation-duration: calc(.26s * var(--anim-scale, 1));
+  animation-timing-function: cubic-bezier(.22, 1, .36, 1);
+  animation-fill-mode: backwards;
+  animation-delay: calc(var(--d, 0ms) * var(--anim-scale, 1));
+}
+.stage[data-anim="out"] [data-part],
+.stage[data-anim="out"] .live {
+  animation-direction: reverse;
+  animation-fill-mode: forwards;
+  animation-duration: calc(.18s * var(--anim-scale, 1));
+}
+
+.stage[data-anim] [data-part] { animation-name: skai-in; }
+
+/* the connector rules grow out from behind the plate they meet */
+.stage[data-anim] [data-part="deco-top"],
+.stage[data-anim] [data-part="deco-bottom"] { animation-name: skai-wipe-l; }
+
+.stage[data-anim] .live { animation-name: skai-fade; }
+
+/* =====================================================================
+   THE CHROME BREATHES
+   The white connector rules are an entrance flourish, not furniture: they
+   wipe in with the board, hold a beat, then dissolve so the middle of the
+   screen belongs to the mission. And while the car is on the move
+   (data-hud="quiet") the chips, names and logo step back too — a situation
+   popup brings the full board straight back.
+   ===================================================================== */
+.stage [data-part="deco-top"],
+.stage [data-part="deco-bottom"],
+.stage [data-part="extra"],
+.stage [data-part="logo"],
+.stage [data-part="chips"],
+.stage [data-part="panel"],
+.stage .live-name { transition: opacity .55s ease; }
+
+.stage.is-settled:not([data-anim]) [data-part="deco-top"],
+.stage.is-settled:not([data-anim]) [data-part="deco-bottom"],
+.stage.is-settled:not([data-anim]) [data-part="extra"] { opacity: 0; }
+
+/* On the move, only what the drive needs stays: the way out, the rail, the
+   hint bulb and the key. The clock, the info key, the chips and the logo all
+   stand down — a clock on a child learning to reason is pressure, not
+   information — and everything returns the moment a situation lands. */
+.stage[data-hud="quiet"]:not([data-anim]) [data-part="chips"],
+.stage[data-hud="quiet"]:not([data-anim]) [data-part="logo"],
+.stage[data-hud="quiet"]:not([data-anim]) [data-part="panel"],
+.stage[data-hud="quiet"]:not([data-anim]) [data-part="info"],
+.stage[data-hud="quiet"]:not([data-anim]) [data-part="timer"],
+.stage[data-hud="quiet"]:not([data-anim]) .live-timer,
+.stage[data-hud="quiet"]:not([data-anim]) .live-info,
+.stage[data-hud="quiet"]:not([data-anim]) .live-name { opacity: 0; }
+.stage [data-part="info"], .stage [data-part="timer"],
+.stage .live-timer, .stage .live-info { transition: opacity .55s ease; }
+.stage[data-hud="quiet"] .hit-info { pointer-events: none; }
+
+@keyframes skai-in {
+  from {
+    opacity: 0;
+    transform: translate(calc(var(--tx, 0) * var(--px)),
+                         calc(var(--ty, 0) * var(--px)))
+               scale(var(--sc, 1));
+  }
+  to { opacity: 1; transform: none; }
+}
+@keyframes skai-fade   { from { opacity: 0 } to { opacity: 1 } }
+@keyframes skai-wipe-l { from { opacity: 0; transform: scaleX(0) } to { opacity: 1; transform: none } }
+
+html.reduce-motion .stage[data-anim] [data-part],
+html.reduce-motion .stage[data-anim] .live { animation: none !important; }
+
+/* =====================================================================
+   LIVE TEXT — real type in the holes the glyph-stripper left. Boxes come
+   from the layout system's boards.json and are set inline by SkaiHud.
+   ===================================================================== */
+.live {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-head);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.live-timer { color: var(--lt-timer); font-variant-numeric: tabular-nums; }
+.live-cta   { color: var(--lt-cta); letter-spacing: calc(0.5 * var(--px)); text-transform: uppercase; }
+.live-cta.is-locked { color: rgba(255, 255, 255, 0.62); }
+.live-count { color: var(--lt-count); }
+.live-info  { color: var(--lt-info); }
+.live-name  { color: var(--lt-name); overflow: hidden; }
+.live-name.is-now { color: var(--c-3); }
+.live.is-hidden { display: none; }
+
+.live-timer[data-state="danger"] { animation: skai-pulse 1s infinite; }
+@keyframes skai-pulse { 50% { opacity: .35; } }
+
+/* =====================================================================
+   HIT AREAS — invisible buttons over the artwork. Pointing at one lifts
+   only that control's own artwork.
+   ===================================================================== */
+.hud-hit {
+  position: absolute;
+  z-index: 25;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  box-shadow: none;
+}
+.hud-hit:disabled { cursor: default; }
+.hud-hit:disabled.hit-cta { cursor: not-allowed; pointer-events: auto; }
+
+.skai-board [data-part].is-hot  { filter: brightness(1.14); }
+.skai-board [data-part].is-down { filter: brightness(.93); }
+
+.hit-back  { left: 0;                      top: 0;                     width: calc(152 * var(--px)); height: calc(116 * var(--px)); }
+.hit-info  { left: calc(1668 * var(--px)); top: calc(26 * var(--px));  width: calc(74 * var(--px));  height: calc(84 * var(--px)); }
+.hit-timer { left: calc(1748 * var(--px)); top: calc(28 * var(--px));  width: calc(196 * var(--px)); height: calc(78 * var(--px)); }
+.hit-rail  { left: calc(1862 * var(--px)); top: calc(228 * var(--px)); width: calc(98 * var(--px));  height: calc(632 * var(--px)); }
+.hit-hint  { left: calc(60 * var(--px));   top: calc(960 * var(--px)); width: calc(104 * var(--px)); height: calc(104 * var(--px)); border-radius: 50%; }
+.hit-cta   { left: calc(742 * var(--px));  top: calc(908 * var(--px)); width: calc(476 * var(--px)); height: calc(138 * var(--px)); }
+.stage[data-skai-screen="multiplayer"] .hit-cta { top: calc(887 * var(--px)); }
+
+/* =====================================================================
+   STAGE CONTENT — the area a mission screen owns, clear of every HUD part:
+   x 90 → 1830, y 130 → 890. Screens lay themselves out inside this window
+   so nothing ever stands on the artwork's furniture.
+   ===================================================================== */
+.skai-content-box {
+  position: absolute;
+  z-index: 15;
+  left: calc(90 * var(--px));
+  top: calc(130 * var(--px));
+  width: calc(1740 * var(--px));
+  height: calc(760 * var(--px));
+}
+
+/* =====================================================================
+   OVERLAYS — pause, info, hint and the situation popup all stand on the
+   same drawn SKAI panel: the skin's deep panel blue, one white frame,
+   the workshop-orange close key.
+   ===================================================================== */
+.skai-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(16, 25, 74, 0.32);
+  backdrop-filter: blur(calc(3 * var(--px)));
+}
+.skai-modal {
+  position: relative;
+  width: calc(1160 * var(--px));
+  max-height: calc(880 * var(--px));
+  display: flex;
+  flex-direction: column;
+  gap: calc(12 * var(--px));
+  background: var(--pop-paper);
+  border: calc(4 * var(--px)) solid var(--c-2);
+  border-radius: calc(18 * var(--px));
+  padding: calc(40 * var(--px)) calc(52 * var(--px));
+  box-shadow: 0 calc(14 * var(--px)) calc(44 * var(--px)) rgba(9, 20, 66, .35);
+  color: var(--pop-ink-2);
+  overflow: hidden;
+}
+.skai-modal h2 {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(44 * var(--px));
+  color: var(--pop-ink);
+  line-height: 1.1;
+}
+.skai-modal .skai-kicker { margin-bottom: calc(-4 * var(--px)); }
+.skai-modal-body { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: calc(12 * var(--px)); }
+.skai-modal-close {
+  position: absolute;
+  top: calc(18 * var(--px));
+  right: calc(18 * var(--px));
+  width: calc(66 * var(--px));
+  height: calc(60 * var(--px));
+  border-radius: calc(12 * var(--px));
+  background: var(--c-2);
+  color: #fff;
+  border: calc(3 * var(--px)) solid #fff;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(30 * var(--px));
+}
+.skai-modal-close:hover { filter: brightness(1.14); }
+
+/* the pause sheet lists many rows — keep them compact so Resume stays on
+   the panel without a scroll */
+.skai-modal .panel-row { padding: 8px 18px; font-size: 24px; background: var(--pop-card); border: 1px solid var(--pop-line); color: var(--pop-ink); }
+.skai-modal .panel-row em { font-size: 24px; color: var(--pop-ink-3); }
+.skai-modal .panel-row.danger { color: #B3261E; border-color: #E8B4B0; }
+.skai-modal .panel-mixer { padding: 8px 18px; gap: 4px; background: var(--pop-card); border: 1px solid var(--pop-line); color: var(--pop-ink); }
+.skai-modal .mixer-row { font-size: 24px; }
+.skai-modal .modal-sub { font-size: 24px; color: var(--pop-ink-2); }
+.skai-modal .info-list li { color: var(--pop-ink-2); }
+.skai-modal .info-kw li { color: var(--pop-ink-2); }
+.skai-modal .info-kw b { background: var(--pop-card); border-color: var(--pop-line); color: var(--pop-ink); }
+
+.skai-kicker {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(24 * var(--px));
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--pop-amber-ink);
+}
+
+/* ---- The situation popup: the IF → THEN moment, full screen ----------- */
+/* The scrim dims the street only — it lives inside the act-screen, under the
+   board art, so the vector chrome stays at full strength around the popup. */
+/* Below the board vector (z 10) and the live text (z 20): the scrim dims the
+   street, never the chrome, and the popup fills the artwork's clear window. */
+.skai-situation-layer { position: absolute; inset: 0; z-index: 8; }
+.skai-situation-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 25, 74, 0.3);
+  backdrop-filter: blur(calc(2 * var(--px)));
+}
+.skai-situation {
+  position: absolute;
+  left: calc(90 * var(--px));
+  top: calc(132 * var(--px));
+  width: calc(1740 * var(--px));
+  height: calc(748 * var(--px));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(18 * var(--px));
+  background: color-mix(in srgb, var(--pop-paper) 96%, transparent);
+  border: calc(4 * var(--px)) solid var(--c-2);
+  border-radius: calc(18 * var(--px));
+  padding: calc(26 * var(--px)) calc(44 * var(--px)) calc(24 * var(--px));
+  box-shadow: 0 calc(14 * var(--px)) calc(44 * var(--px)) rgba(9, 20, 66, .35);
+}
+.skai-situation .skai-situation-head { flex: none; }
+
+/* The verdict beats keep the STREET in view — the crash or the delivery is
+   the evidence the popup talks about. Lighter scrim, compact panel. */
+.skai-situation-layer[data-step="review"] .skai-situation-scrim,
+.skai-situation-layer[data-step="complete"] .skai-situation-scrim {
+  background: rgba(16, 25, 74, 0.16);
+  backdrop-filter: none;
+}
+.skai-situation-layer[data-step="review"] .skai-situation,
+.skai-situation-layer[data-step="complete"] .skai-situation {
+  height: auto;
+  max-height: calc(748 * var(--px));
+  bottom: auto;
+}
+
+/* what the sensors see: the hazard, named and pictured */
+.skai-sight { display: flex; align-items: center; gap: calc(24 * var(--px)); }
+.skai-sight .sight-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(110 * var(--px));
+  height: calc(110 * var(--px));
+  border-radius: calc(16 * var(--px));
+  background: #fff;
+  border: calc(4 * var(--px)) solid var(--c-2);
+}
+.skai-sight .sight-ico img, .skai-sight .sight-ico .ico { width: calc(78 * var(--px)); height: calc(78 * var(--px)); object-fit: contain; }
+.skai-sight .sight-ico { background: #FFF7E6; }
+.skai-sight .skai-clue b { color: var(--pop-amber-ink); }
+.skai-situation-head { display: flex; align-items: center; justify-content: space-between; gap: calc(18 * var(--px)); }
+.skai-situation h2 {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(34 * var(--px));
+  line-height: 1.15;
+  color: var(--pop-ink);
+}
+.skai-situation .skai-clue { font-size: calc(24 * var(--px)); line-height: 1.4; color: var(--pop-ink-2); }
+
+.skai-turn {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(12 * var(--px));
+  flex: none;
+  padding: calc(6 * var(--px)) calc(18 * var(--px)) calc(6 * var(--px)) calc(8 * var(--px));
+  background: #FFF7E6;
+  border: calc(2 * var(--px)) solid var(--c-2);
+  border-radius: 999px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(24 * var(--px));
+  color: var(--pop-amber-ink);
+  white-space: nowrap;
+}
+.skai-turn img { width: calc(46 * var(--px)); height: calc(46 * var(--px)); object-fit: contain; }
+
+/* the three IF → THEN cards — the sentence IS the card */
+.skai-choice-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: calc(26 * var(--px)); align-items: stretch; }
+.skai-choice {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: calc(8 * var(--px));
+  padding: calc(20 * var(--px)) calc(22 * var(--px)) calc(16 * var(--px));
+  text-align: left;
+  background: #fff;
+  color: #1B2559;
+  border: calc(3 * var(--px)) solid var(--c-2);
+  border-radius: calc(16 * var(--px));
+  box-shadow: 0 calc(6 * var(--px)) calc(18 * var(--px)) rgba(9, 20, 66, .18);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  cursor: pointer;
+}
+.skai-choice:hover { transform: translateY(calc(-6 * var(--px))); }
+.skai-choice[aria-pressed="true"] {
+  border-color: var(--c-3);
+  box-shadow: 0 0 0 calc(6 * var(--px)) var(--c-3), 0 calc(10 * var(--px)) calc(30 * var(--px)) rgba(0, 0, 0, .5);
+  transform: translateY(calc(-6 * var(--px)));
+}
+.skai-choice .choice-if,
+.skai-choice .choice-then {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--px));
+  font-family: var(--font-head);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.skai-choice .choice-if { font-size: calc(24 * var(--px)); color: #3B4470; }
+.skai-choice .choice-then { font-size: calc(28 * var(--px)); color: #10194A; }
+.skai-choice .choice-if b, .skai-choice .choice-then b {
+  flex: none;
+  min-width: calc(92 * var(--px));
+  text-align: center;
+  padding: calc(4 * var(--px)) calc(12 * var(--px));
+  border-radius: calc(8 * var(--px));
+  color: #fff;
+  font-size: calc(24 * var(--px));
+  letter-spacing: .06em;
+}
+.skai-choice .choice-if b { background: var(--c-1); }
+.skai-choice .choice-then b { background: var(--c-2); }
+.skai-choice .choice-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(52 * var(--px));
+  height: calc(52 * var(--px));
+  border-radius: calc(10 * var(--px));
+  background: #EEF2FF;
+  border: calc(2 * var(--px)) solid #C9D2F2;
+}
+.skai-choice .choice-ico .ico { width: calc(40 * var(--px)); height: calc(40 * var(--px)); }
+.skai-choice .choice-arrow {
+  align-self: center;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(30 * var(--px));
+  /* 1 clipped the glyph's em box by 4px — the fit audit's SPILL finding */
+  line-height: 1.25;
+  color: var(--c-2);
+}
+.skai-choice .choice-pick {
+  align-self: center;
+  margin-top: calc(4 * var(--px));
+  padding: calc(4 * var(--px)) calc(16 * var(--px));
+  border-radius: 999px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(24 * var(--px));
+  letter-spacing: .05em;
+  color: #7A82AC;
+  background: #EEF2FF;
+}
+.skai-choice[aria-pressed="true"] .choice-pick { color: #2b1400; background: var(--c-3); }
+.skai-choice .choice-num {
+  position: absolute;
+  top: calc(-16 * var(--px));
+  left: calc(-16 * var(--px));
+  width: calc(44 * var(--px));
+  height: calc(44 * var(--px));
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--c-2);
+  border: calc(3 * var(--px)) solid #fff;
+  color: #fff;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(24 * var(--px));
+}
+
+/* the tested rule, read back as one big sentence */
+.skai-rule-hero {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(16 * var(--px)) calc(20 * var(--px));
+  padding: calc(22 * var(--px)) calc(28 * var(--px));
+  border-radius: calc(16 * var(--px));
+  background: var(--pop-card);
+  border: calc(3 * var(--px)) solid var(--pop-line);
+}
+.skai-rule-hero.is-bad  { border-color: #E8837A; background: #FFF3F1; }
+.skai-rule-hero.is-good { border-color: #4CBFA0; background: #F0FBF7; }
+.skai-rule-hero .tr-if, .skai-rule-hero .tr-then,
+.tutorial-rule .tr-if, .tutorial-rule .tr-then {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(12 * var(--px));
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(28 * var(--px));
+  color: var(--pop-ink);
+}
+.skai-rule-hero b, .tutorial-rule b {
+  flex: none;
+  min-width: calc(92 * var(--px));
+  text-align: center;
+  padding: calc(4 * var(--px)) calc(14 * var(--px));
+  border-radius: calc(8 * var(--px));
+  color: #fff;
+  font-size: calc(24 * var(--px));
+  letter-spacing: .06em;
+}
+.skai-rule-hero .tr-if b, .tutorial-rule .tr-if b { background: #2244C8; }
+.skai-rule-hero .tr-then b, .tutorial-rule .tr-then b { background: var(--c-2); }
+.skai-rule-hero .tr-ico, .tutorial-rule .tr-ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(56 * var(--px));
+  height: calc(56 * var(--px));
+  border-radius: calc(10 * var(--px));
+  background: #fff;
+  border: calc(2 * var(--px)) solid var(--pop-line);
+}
+.skai-rule-hero .tr-ico .ico, .tutorial-rule .tr-ico .ico { width: calc(42 * var(--px)); height: calc(42 * var(--px)); }
+.skai-rule-hero .tr-arrow, .tutorial-rule .tr-arrow {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(40 * var(--px));
+  color: var(--c-2);
+  line-height: 1;
+}
+.skai-rule-hero .tr-verdict {
+  margin-left: auto;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(26 * var(--px));
+  letter-spacing: .04em;
+}
+.skai-rule-hero.is-bad .tr-verdict { color: #B3261E; }
+.skai-rule-hero.is-good .tr-verdict { color: #12775C; }
+.skai-note { font-size: calc(24 * var(--px)); line-height: 1.35; color: var(--pop-amber-ink); }
+.skai-stars { color: var(--c-2); letter-spacing: .12em; margin-right: calc(6 * var(--px)); }
+.skai-note.is-bad { color: #B3261E; }
+
+/* the committed rule, read back as one sentence */
+.skai-rule-line {
+  padding: calc(12 * var(--px)) calc(18 * var(--px));
+  border-left: calc(5 * var(--px)) solid var(--c-2);
+  border-radius: calc(10 * var(--px));
+  background: var(--pop-card);
+  font-size: calc(24 * var(--px));
+  line-height: 1.5;
+  color: var(--pop-ink);
+}
+.skai-rule-line b { color: var(--pop-amber-ink); font-family: var(--font-head); }
+
+/* small status chip while the car drives or tests */
+.skai-status {
+  position: absolute;
+  z-index: 18;
+  left: 50%;
+  top: calc(140 * var(--px));
+  translate: -50% 0;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(12 * var(--px));
+  padding: calc(7 * var(--px)) calc(22 * var(--px));
+  background: rgba(253, 253, 255, .82);
+  border: calc(2 * var(--px)) solid var(--c-2);
+  border-radius: 999px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(24 * var(--px));
+  color: var(--pop-ink);
+  pointer-events: none;
+}
+.skai-status i {
+  width: calc(14 * var(--px));
+  height: calc(14 * var(--px));
+  border-radius: 50%;
+  background: var(--c-2);
+  animation: skai-pulse 1.2s infinite;
+}
+
+/* rules list inside the hint / rulebook overlay */
+.skai-rules { display: grid; gap: calc(12 * var(--px)); }
+.skai-rules li {
+  padding: calc(12 * var(--px)) calc(16 * var(--px));
+  background: var(--pop-card);
+  border: 1px solid var(--pop-line);
+  border-radius: calc(10 * var(--px));
+  font-size: calc(24 * var(--px));
+  line-height: 1.45;
+  color: var(--pop-ink);
+}
+.skai-rules b { color: var(--pop-amber-ink); font-family: var(--font-head); }
+
+/* ---- The handoff: whose turn is next, named on the star popup ---------- */
+.skai-handoff {
+  display: flex;
+  align-items: center;
+  gap: calc(18 * var(--px));
+  margin-top: calc(4 * var(--px));
+  padding: calc(12 * var(--px)) calc(22 * var(--px));
+  background: #FFF7E6;
+  border: calc(3 * var(--px)) solid var(--c-2);
+  border-radius: calc(14 * var(--px));
+}
+.skai-handoff img { width: calc(64 * var(--px)); height: calc(64 * var(--px)); object-fit: contain; }
+.skai-handoff div { display: grid; gap: calc(2 * var(--px)); }
+.skai-handoff span {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(24 * var(--px));
+  letter-spacing: .07em;
+  color: var(--pop-amber-ink);
+}
+.skai-handoff strong {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(28 * var(--px));
+  color: var(--pop-ink);
+}
+
+/* ---- The standard action vocabulary on a card -------------------------- */
+.skai-choice .choice-then { flex-wrap: wrap; }
+.skai-choice .choice-act { display: inline-flex; align-items: center; gap: calc(10 * var(--px)); }
+.skai-choice .choice-plus {
+  font-style: normal;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(24 * var(--px));
+  color: var(--pop-amber-ink);
+  margin-right: calc(2 * var(--px));
+}
+/* the action's plain-English definition — identical wherever it appears */
+.skai-choice .choice-gloss {
+  font-size: calc(24 * var(--px));
+  line-height: 1.3;
+  color: #55608F;
+  text-align: left;
+}
+
+/* ---- The crew editor, on the setup screen and in the pause sheet ------- */
+.skai-modal--crew { width: calc(1400 * var(--px)); }
+.skai-modal--crew .crew-panel { gap: 14px; }
+.skai-modal--crew .crew-seat { background: #F4F7FF; }
+.crew-panel { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+.crew-step { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+.crew-locked { font-size: 24px; color: #B36A00; max-width: 80ch; text-align: center; }
+.crew-faces { display: flex; justify-content: center; gap: 6px; }
+/* The faces are PORTRAIT art (240x321), so the swatch is portrait too and
+   both axes are stated in pixels: a percentage height inside a grid item
+   resolved to auto and the picture spilled 11px out of its button. */
+.crew-face-pick {
+  width: 44px; height: 54px; padding: 2px;
+  display: grid; place-items: center;
+  border: 2px solid #C9D2F2; border-radius: 10px; background: #fff;
+  transition: border-color .12s ease, transform .12s ease;
+}
+.crew-face-pick img { width: 33px; height: 44px; object-fit: contain; }
+.crew-face-pick:hover { transform: translateY(-2px); border-color: #F5A524; }
+.crew-face-pick.is-on { border-color: #F5A524; background: #FFF7E6; box-shadow: 0 0 0 3px #f5a52440; }
+.crew-count-pick:disabled { opacity: .5; }
+.crew-seat-face { border-radius: 14px; }
+/* inside the pause sheet the editor is compact: the seats shrink so the
+   "Back to the mission" key is on screen without a scroll */
+.skai-modal--crew .crew-seat-face { width: 62px; height: 62px; }
+.skai-modal--crew .crew-seat { padding: 10px; gap: 4px; }
+.skai-modal--crew .crew-step { gap: 6px; }
+.skai-modal--crew .crew-face-pick { width: 38px; height: 46px; }
+.skai-modal--crew .crew-face-pick img { width: 28px; height: 37px; }
+.skai-modal--crew .skai-modal-body { gap: calc(10 * var(--px)); }
+
+/* ---- The situation's IF, stated once above the cards ------------------- */
+.skai-if-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--px));
+  margin-top: calc(6 * var(--px));
+  padding: calc(4 * var(--px)) calc(16 * var(--px)) calc(4 * var(--px)) calc(6 * var(--px));
+  background: #EEF2FF;
+  border: calc(2 * var(--px)) solid var(--pop-line);
+  border-radius: 999px;
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: calc(24 * var(--px));
+  color: var(--pop-ink);
+}
+.skai-if-chip b {
+  padding: calc(2 * var(--px)) calc(12 * var(--px));
+  border-radius: 999px;
+  background: #2244C8;
+  color: #fff;
+  font-size: calc(24 * var(--px));
+  letter-spacing: .06em;
+}
+
+/* the cards are pure THEN now: one big action, centred */
+.skai-choice { align-items: flex-start; gap: calc(6 * var(--px)); padding: calc(22 * var(--px)); }
+.skai-choice .choice-then { font-size: calc(30 * var(--px)); }
+/* Fewer words means the sheet has room: the three cards grow into it, so the
+   targets are big for small fingers instead of the panel looking half empty. */
+.skai-situation[data-step="choose"] .skai-choice-row { margin-top: calc(10 * var(--px)); }
+.skai-situation[data-step="choose"] .skai-choice {
+  min-height: calc(210 * var(--px));
+  justify-content: center;
+  gap: calc(10 * var(--px));
+}
+.skai-situation[data-step="choose"] .skai-choice .choice-then { font-size: calc(32 * var(--px)); }
+.skai-situation[data-step="choose"] .skai-choice .choice-ico {
+  width: calc(60 * var(--px));
+  height: calc(60 * var(--px));
+}
+.skai-situation[data-step="choose"] .skai-choice .choice-ico .ico {
+  width: calc(46 * var(--px));
+  height: calc(46 * var(--px));
+}

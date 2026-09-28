@@ -1,0 +1,401 @@
+/* =========================================================================
+   THE SCENE — the world the game draws, in both editions.
+
+   Everything here paints the street: the 3D canvas and its camera rig, the
+   flat edition's parallax layers, props, weather and vehicle, and the
+   ambient life on the pavement. It is lifted verbatim out of the old
+   components.css because it was never the problem — the CHROME was. Chrome
+   now lives in screens.css; this file owns the world and nothing else.
+   ========================================================================= */
+
+/* Camera rig — a perspective camera on the compositor.
+
+   Three custom properties ARE the rig, adjustable in one place:
+     --cam-persp  focal length (smaller = wider lens, stronger 3D)
+     --cam-yaw    world yaw while the vehicle is moving (following-car feel)
+     --cam-push   dolly-in factor when the vehicle is stopped and worked on
+   ========================================================================= */
+
+.scene {
+  perspective: var(--cam-persp, 1500px);
+  perspective-origin: 50% 58%;
+}
+.scene-near {
+  transform:
+    scale(var(--cam-push, 1))
+    rotateY(var(--cam-yaw, 0deg))
+    translateX(calc(var(--cam) * -100%));
+  transform-style: flat;
+  transition: none;
+  will-change: transform;
+}
+/* Yaw and push ease on their own clock so the drive itself stays linear. */
+.scene { --cam-yaw: 0deg; --cam-push: 1; transition: --cam-yaw .9s var(--ease), --cam-push .7s var(--ease); }
+@property --cam-yaw { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
+@property --cam-push { syntax: '<number>'; inherits: true; initial-value: 1; }
+.scene.is-moving { --cam-yaw: 2.4deg; }
+.scene.is-backdrop { --cam-push: 1.05; --cam-yaw: 0deg; }
+
+/* =========================================================================
+   Ambient life — walkers on the far pavement, clouds in the sky
+   ========================================================================= */
+
+.ambient { position: absolute; inset: 0; pointer-events: none; }
+.amb-cloud {
+  position: absolute;
+  top: 4%;
+  width: 7%;
+  height: 5%;
+  border-radius: 999px;
+  background: radial-gradient(60% 100% at 50% 60%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0));
+  animation: amb-drift 90s linear infinite;
+}
+.amb-cloud.c2 { top: 9%; width: 5%; animation-duration: 130s; animation-delay: -40s; }
+@keyframes amb-drift { from { transform: translateX(-8%); } to { transform: translateX(108%); } }
+
+/* Walkers live in the FAR band: above the far lane, at far scale, behind the
+   story props in paint order. Distance in the keyframes is in scene-world
+   percent, so it survives any viewport. */
+.amb-walker { position: absolute; bottom: calc(var(--ground) + var(--lane-far) + 12px); width: 1.1%; line-height: 0; opacity: 0.85; }
+.amb-walker img { width: 100%; height: auto; filter: drop-shadow(0 3px 5px rgba(9, 28, 86, 0.2)); }
+.amb-walker.w1 { left: 4%; animation: amb-walk 74s linear infinite; }
+.amb-walker.w2 { left: 55%; animation: amb-walk-back 66s linear infinite; }
+.amb-walker.w2 img { transform: scaleX(-1); }
+.amb-walker.w3 { left: 20%; width: 2.1%; bottom: calc(var(--ground) + var(--lane-far) + 4px); animation: amb-walk 52s linear infinite; animation-delay: -20s; }
+@keyframes amb-walk {
+  from { transform: translateX(0); }
+  to { transform: translateX(7400%); }
+}
+@keyframes amb-walk-back {
+  from { transform: translateX(0) ; }
+  to { transform: translateX(-4200%); }
+}
+
+/* =========================================================================
+   Lidar — the roof pod is alive while the vehicle moves
+   ========================================================================= */
+
+.van-lidar {
+  position: absolute;
+  left: 61%;
+  top: -3%;
+  width: 6%;
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+.van-lidar i {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: conic-gradient(from 0deg, rgba(23, 189, 224, 0.85) 0 30deg, rgba(23, 189, 224, 0) 90deg);
+  animation: lidar-spin 1.1s linear infinite;
+  opacity: 0;
+  transition: opacity .3s var(--ease);
+}
+.van-lidar b {
+  position: absolute;
+  inset: 22%;
+  border-radius: 999px;
+  border: 2px solid rgba(23, 189, 224, 0.75);
+  opacity: 0;
+  animation: lidar-pulse 1.6s ease-out infinite;
+}
+.van-bob.is-driving .van-lidar i { opacity: 0.9; }
+.van-bob.is-driving .van-lidar b { opacity: 1; }
+@keyframes lidar-spin { to { transform: rotate(360deg); } }
+@keyframes lidar-pulse {
+  0% { transform: scale(0.6); opacity: 0.8; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* The rolling body leans a degree into the direction of travel. */
+.van-bob { transition: rotate .5s var(--ease); }
+.van-bob.is-driving { rotate: -0.9deg; }
+
+/* =========================================================================
+   The 3D street
+
+   The canvas fills the act stage and is sized in DEVICE pixels by the renderer,
+   so it must not inherit the logical-canvas transform scaling — it listens to
+   its own ResizeObserver instead.
+   ========================================================================= */
+
+.scene-3d {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #bfe0f5;
+}
+.scene-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Dragging the canvas orbits the camera, so the browser must not try to
+     pan/zoom the page from the same gesture. */
+  touch-action: none;
+  cursor: grab;
+}
+.scene-canvas:active { cursor: grabbing; }
+
+/* Backdrop mode: the street is behind an open editor, so it steps back. */
+/* No blur here: the editor scrim's backdrop-filter already blurs the street,
+   and a second full-canvas blur was the most expensive thing on screen. */
+.scene-3d.is-backdrop .scene-canvas { filter: saturate(0.75) brightness(0.82); }
+.scene-3d.is-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(9, 28, 86, 0.28), rgba(9, 28, 86, 0.42));
+}
+/* ---- No WebGL ---------------------------------------------------------- */
+.scene-flat { position: absolute; inset: 0; display: grid; place-items: center; background: var(--light-sky); }
+.scene-fallback { max-width: 520px; padding: 26px 28px; background: var(--white); }
+/* Over the 3D canvas the slab has to be POSITIONED, or it lands top-left under
+   the brand plate where nobody reads it. */
+.scene-3d .scene-fallback { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; }
+.scene-fallback strong { display: block; font-family: var(--font-display); font-size: var(--t-h3); color: var(--navy); }
+.scene-fallback p { margin-top: 8px; font-size: var(--t-body); color: var(--text-secondary); }
+
+/* =========================================================================
+   The 2D classic edition — flat side-scroller on the retired sprites
+   ========================================================================= */
+
+.scene-2d { position: absolute; inset: 0; overflow: hidden; background: #0a1f4a; }
+.w2d-viewport { position: absolute; inset: 0; overflow: hidden; }
+/* Weather is the EVIDENCE on the wet and fog patrols: the 3D street fogs and
+   darkens, so the flat street does too — otherwise its child is asked why the
+   car should brake early on a road that looks perfectly dry. */
+.w2d-weather { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.w2d-weather.is-fog {
+  background: linear-gradient(180deg, rgba(214, 224, 232, 0.55) 0%, rgba(214, 224, 232, 0.82) 45%, rgba(190, 200, 210, 0.7) 100%);
+}
+.w2d-weather.is-rain {
+  background:
+    repeating-linear-gradient(105deg, transparent 0 7px, rgba(255, 255, 255, 0.28) 7px 8px, transparent 8px 22px),
+    linear-gradient(180deg, rgba(60, 74, 96, 0.28), rgba(60, 74, 96, 0.12));
+  animation: w2d-rain .5s linear infinite;
+}
+@keyframes w2d-rain { to { background-position: -30px 60px, 0 0; } }
+.scene-2d:has(.w2d-weather.is-rain) .w2d-road { filter: brightness(0.72) saturate(0.8); }
+.scene-2d:has(.w2d-weather.is-fog) .w2d-far { opacity: 0.25; }
+.scene-2d:has(.w2d-weather.is-fog) .w2d-prop:not(.is-live) { filter: drop-shadow(0 6px 8px rgba(4, 16, 46, 0.45)) brightness(0.9) contrast(0.85); }
+.w2d-world { position: absolute; top: 0; bottom: 0; left: 0; transition: none; z-index: 1; }
+
+/* ---- Parallax stack ------------------------------------------------------
+   Layers are wider than the screen and repeat-x their seamless strip; each is
+   translated by its own fraction of the camera. Percentages translate relative
+   to the LAYER's width (400% of the viewport), hence the ×14 in the JSX:
+   one screen of camera ≈ 14% of the layer. */
+.w2d-sky {
+  position: absolute;
+  inset: 0;
+  /* Daylight: the flat edition used to run at dusk while the 3D street ran
+     at noon, so the two editions of one game looked like two games. */
+  background: linear-gradient(180deg, #7fc0ee 0%, #a9d8f4 52%, #cfe8f7 100%);
+}
+.w2d-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 400%;
+  background-repeat: repeat-x;
+  will-change: transform;
+}
+.w2d-far {
+  bottom: 30%;
+  top: auto;
+  height: 44%;
+  background-size: auto 100%;
+  background-position: bottom left;
+  /* Hazy, so it sits behind the shopfronts rather than competing with them. */
+  opacity: 0.85;
+  /* The JPG's baked sky meets the CSS sky in a hard horizontal line — feather
+     the layer's top edge into the gradient instead of butting against it. */
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 26%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 26%);
+}
+.w2d-mid {
+  bottom: 21%;
+  top: auto;
+  /* Shorter than the far layer's top edge, so the skyline shows above the
+     shopfront rooftops and the street actually has depth. */
+  height: 46%;
+  background-size: auto 100%;
+  background-position: bottom left;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 14%);
+}
+.w2d-road {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 22%;
+  /* Dashes every 1.6% of the world instead of every 8%: at the old spacing
+     only two of them were ever on screen at once, and two marks sliding past
+     is not enough for a child to see that the car is moving at all. This is
+     the flat edition's ONLY motion cue — the camera follows the car, so the
+     car itself barely moves in frame. */
+  background:
+    repeating-linear-gradient(90deg, transparent 0 0.62%, rgba(247, 251, 255, 0.9) 0.62% 1.06%, transparent 1.06% 1.6%) 0 42% / 100% 6px no-repeat,
+    linear-gradient(180deg, #566072 0%, #3e4754 100%);
+  border-top: 5px solid #9aa6b3;
+}
+.w2d-prop {
+  position: absolute;
+  z-index: 2;
+  transform: translateX(-50%);
+  transition: opacity .5s var(--ease), transform .6s var(--ease);
+  filter: drop-shadow(0 6px 8px rgba(4, 16, 46, 0.45));
+}
+.w2d-prop.is-live { animation: w2d-bob 1s ease-in-out infinite alternate; }
+@keyframes w2d-bob { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-4px); } }
+
+/* ---- Street life: nothing alive stands like a statue --------------------
+   Idle motion per hazard, running whether or not the question is up. The
+   rider rocks like someone actually pedalling, the dog trots on the spot,
+   people shift their weight, the ambulance closes in when it goes live. */
+.w2d-prop[data-trigger='CYCLIST'], .w2d-prop[data-trigger='ROAD_WET'] {
+  animation: w2d-ride 0.7s ease-in-out infinite alternate;
+}
+@keyframes w2d-ride {
+  from { transform: translateX(-50%) translateY(0) rotate(-1.4deg); }
+  to { transform: translateX(-50%) translateY(-3px) rotate(1.4deg); }
+}
+.w2d-prop[data-trigger='DOG'] { animation: w2d-trot 0.45s ease-in-out infinite alternate; }
+@keyframes w2d-trot {
+  from { transform: translateX(-50%) translateY(0); }
+  to { transform: translateX(-50%) translateY(-5px); }
+}
+.w2d-prop[data-trigger='MANY_MOVING'], .w2d-prop[data-trigger='ROAD_BLOCKED'] {
+  animation: w2d-shift 1.6s ease-in-out infinite alternate;
+}
+@keyframes w2d-shift {
+  from { transform: translateX(-50%) rotate(-1deg); }
+  to { transform: translateX(-50%) rotate(1deg); }
+}
+/* Entrances, on top of the idles: the child sprints in from the far side,
+   the ambulance closes from behind. */
+.w2d-prop.is-live[data-trigger='MOVING'] {
+  animation: w2d-run-in 0.9s var(--ease), w2d-bob 0.5s 0.9s ease-in-out infinite alternate;
+}
+@keyframes w2d-run-in {
+  from { transform: translateX(-320%) translateY(-26%) scale(0.85); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+}
+.w2d-prop.is-live[data-trigger='EMERGENCY_BEHIND'] {
+  animation: w2d-close-in 1.6s var(--ease), w2d-shift 0.5s 1.6s ease-in-out infinite alternate;
+}
+@keyframes w2d-close-in {
+  from { transform: translateX(-50%) translateX(-300%); }
+  to { transform: translateX(-50%); }
+}
+/* The ambulance shunts the car from BEHIND: knocked forward, not tipped. */
+.w2d-prop.is-hit[data-trigger='EMERGENCY_BEHIND'] { transform: translateX(-50%) translateX(35%) rotate(0); }
+/* Reduced motion kills all of it in one stroke (see .reduce-motion). */
+
+.w2d-van {
+  position: absolute;
+  z-index: 3;
+  /* The sprite is NOT grounded flush — it carries 14.2% of its own height in
+     transparent margin under the tyres, measured by
+     `scripts/probe-flat-ground.mjs`. So the box sits on the ground line and is
+     then pushed DOWN by that margin, which puts the wheels on the line instead
+     of the empty pixels below them. This is the whole of "the car is in the
+     air": it was the box that was grounded, not the car. */
+  bottom: 16%;
+  aspect-ratio: 900 / 451;
+  background-size: 400% 100%;
+  background-position: 0 0;
+  transition: transform .4s var(--ease);
+  /* A tight shadow only. The wide blurred one read as a glow under a floating
+     object; the ellipse in `.w2d-shadow` is what says it is standing on the
+     road. */
+  filter: drop-shadow(0 3px 4px rgba(4, 16, 46, 0.35));
+}
+
+/* The contact shadow: an ellipse on the tarmac under the tyres. */
+.w2d-shadow {
+  position: absolute;
+  z-index: 2;
+  height: 2.2%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(6, 16, 40, 0.5) 0%, rgba(6, 16, 40, 0.28) 46%, rgba(6, 16, 40, 0) 72%);
+  pointer-events: none;
+  transition: bottom .5s var(--ease), opacity .5s var(--ease);
+}
+/* Passing: the shadow rides up to the far lane with the car (the component
+   moves `bottom`), a little smaller and fainter with the distance. */
+.w2d-shadow.is-passing { transform: translateX(-50%) scale(0.88); opacity: 0.75; }
+.w2d-shadow.is-rolling { animation: w2d-shadow-flex .36s ease-in-out infinite alternate; }
+@keyframes w2d-shadow-flex {
+  from { transform: translateX(-50%) scaleY(1); }
+  to { transform: translateX(-50%) scaleY(0.86); }
+}
+.w2d-shadow.is-passing.is-rolling { animation: none; }
+/* Rolling: the wheel sprite cycles AND the body rumbles — a live engine, on
+   the standalone `translate` channel so it never fights the positioning
+   transform. */
+/* The wheel frames are stepped by DISTANCE in the component (background-
+   position from metres rolled), not by a CSS clock: rewriting the clock's
+   period every frame restarted the animation, so the wheels spun backwards
+   whenever the car eased off. CSS keeps only the rumble. */
+.w2d-van.is-rolling { animation: w2d-rumble .38s ease-in-out infinite alternate; }
+@keyframes w2d-rumble { from { translate: 0 0; } to { translate: 0 -1.4px; } }
+.w2d-van.is-alert { filter: drop-shadow(0 0 18px rgba(255, 176, 46, 0.8)); }
+/* Crashed: nose down, tipped HARD, and stopped — with a tight hot rim, not a
+   serene glow. The whole viewport takes one impact shake (kill-switched by
+   .reduce-motion like every animation). */
+.w2d-van.is-crashed {
+  transform-origin: 30% 100%;
+  transform: translateX(-50%) translateY(var(--tyre-pad, 0)) rotate(-12deg);
+  filter: saturate(1.15) drop-shadow(0 0 5px rgba(255, 90, 43, 0.9));
+  animation: none;
+  transition: transform .28s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.scene-2d:has(.w2d-van.is-crashed) .w2d-viewport { animation: w2d-impact .35s var(--ease) 1; }
+@keyframes w2d-impact {
+  20% { translate: -10px 4px; }
+  45% { translate: 8px -3px; }
+  70% { translate: -5px 2px; }
+  100% { translate: 0 0; }
+}
+/* The struck prop takes the hit too — knocked askew, not untouched. */
+.w2d-prop.is-hit {
+  transform: translateX(-50%) rotate(14deg) translateY(4%);
+  animation: none;
+}
+/* `--tyre-pad` comes from the component and is the sprite's own transparent
+   margin. Every variant has to carry it, or that variant is the one where the
+   car floats. */
+.w2d-van { transform: translateX(-50%) translateY(var(--tyre-pad, 0)); }
+.w2d-van.is-flipped { transform: translateX(-50%) translateY(var(--tyre-pad, 0)) scaleX(-1); }
+/* The far lane, in side-view: up to the other lane's ground line, slightly
+   smaller with the distance, and BEHIND the obstacle it is passing.
+   EASED, not snapped — the lift used to teleport, which read as the car
+   jumping into the air — and the contact shadow (below) moves up WITH it,
+   because a car hanging above its own shadow is the definition of floating. */
+.w2d-van { transition: transform .5s var(--ease); }
+.w2d-van.is-passing { transform: translateX(-50%) translateY(calc(var(--tyre-pad, 0) - 13%)) scale(0.92); z-index: 1; }
+.w2d-van.is-flipped.is-passing { transform: translateX(-50%) translateY(calc(var(--tyre-pad, 0) - 13%)) scale(0.92) scaleX(-1); }
+
+
+/* ---- the flat edition's title backdrop ---------------------------------- */
+/* ---- the flat edition's title backdrop ------------------------------------
+   The 2D game opens on its own painted street: the CSS sky, a static strip of
+   the shopfront layer, the road band — the same pieces the drive uses. */
+.title-flat { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+/* The block must stack over the absolutely-positioned backdrop layers. */
+.title-screen .title-block { position: relative; z-index: 1; }
+.title-flat-strip {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 21%;
+  height: 46%;
+  background-repeat: repeat-x;
+  background-size: auto 100%;
+  background-position: bottom left;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 14%);
+}
+.title-flat .w2d-road { height: 21%; }

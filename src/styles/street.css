@@ -1,0 +1,722 @@
+/* =========================================================================
+   SKAI Space — the street.
+
+   Everything that stands over the drive: the question, the policy scan, the
+   verdict strip, the rule editor, the briefing, and the instrument cluster.
+
+   The street is the interface, so this file is disciplined about area. Each
+   piece owns one zone of the board and no two zones overlap:
+
+        top-left      pause                      44,44   64x64
+        top-right     policy key, restart        44,44   → 122
+        left band     the policy scan            44, 190 → 640 wide
+        bottom band   the question / the verdict 44 from the bottom
+        bottom-right  the instrument cluster     (stands down during a review)
+
+   Sizes are board pixels. Nothing here reads the viewport.
+   ========================================================================= */
+
+.act-screen { background: var(--bg); }
+.act-scene { position: absolute; inset: 0; overflow: hidden; }
+
+/* =========================================================================
+   The policy key and the restart key — top right, always reachable
+   ========================================================================= */
+
+.act-policy {
+  position: absolute;
+  z-index: 16;
+  right: var(--pad);
+  top: var(--pad);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--hud-h);
+  padding: 0 22px;
+  background: var(--bolts-sm), linear-gradient(197deg, var(--plate-lit) 0%, var(--plate-deep) 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-key);
+  box-shadow: var(--shadow-pill);
+  font-family: var(--font-display);
+  font-size: var(--t-h6);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--paper);
+}
+.act-policy .ico { width: 28px; height: 28px; color: var(--yellow); }
+.act-policy-label-short { display: none; }
+.act-policy-count {
+  display: grid; place-items: center; min-width: 38px; height: 38px;
+  padding: 0 10px; border-radius: var(--r-key);
+  background: linear-gradient(180deg, #ffbf63, var(--amber)); color: #2b1400;
+  font-family: var(--font-num); font-size: var(--t-body); font-weight: 700;
+}
+.act-policy.is-hidden,
+.act-restart.is-hidden { opacity: 0; pointer-events: none; visibility: hidden; }
+.act-policy, .act-restart { transition: opacity .2s var(--ease), visibility .2s var(--ease); }
+
+.act-restart {
+  position: absolute;
+  z-index: 16;
+  right: var(--pad);
+  top: calc(var(--pad) + var(--hud-h) + 14px);
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: center / contain no-repeat var(--rosette);
+  border: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 6px 12px rgba(2, 8, 22, 0.45));
+  color: var(--paper);
+}
+.act-restart .ico { width: 26px; height: 26px; color: var(--paper); }
+.act-restart.is-confirming { filter: drop-shadow(0 0 0 var(--amber)) drop-shadow(0 0 8px var(--amber)) drop-shadow(0 6px 12px rgba(2, 8, 22, 0.45)); }
+
+
+/* =========================================================================
+   The question — IF / THEN, and the way in from a keyboard or a thumb
+   ========================================================================= */
+
+/* Left-anchored, not centred: the car sits dead centre at the bottom of the
+   frame in both editions, and a centred question pill landed on the roof of
+   the very thing it is asking about. */
+.hz-banner {
+  position: absolute;
+  z-index: 18;
+  left: var(--pad);
+  right: var(--pad);
+  bottom: var(--pad);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  pointer-events: none;
+}
+.hz-banner button { pointer-events: auto; }
+
+/* The rule grammar, at the size the decision deserves. */
+.hz-ifthen {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 30px;
+  background: var(--bolts), linear-gradient(197deg, var(--plate-lit) 0%, var(--plate-deep) 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-plate);
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-display);
+  align-self: flex-start;
+  max-width: 100%;
+}
+.hz-turn {
+  padding: 6px 16px;
+  background: var(--plate-deep);
+  border: 1px solid var(--plate-line);
+  border-radius: var(--r-key);
+  color: var(--yellow);
+  font-size: var(--t-body);
+  white-space: nowrap;
+}
+.hz-if, .hz-then {
+  font-size: var(--t-h4);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--yellow);
+}
+.hz-cond {
+  padding: 6px 22px;
+  border-radius: var(--r-key);
+  background: var(--cream);
+  border: 2px solid var(--plate-line);
+  font-size: var(--t-h4);
+  font-weight: 400;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hz-pick {
+  padding: 6px 26px;
+  border-radius: var(--r-key);
+  border: 3px dashed var(--yellow);
+  font-size: var(--t-h4);
+  font-weight: 400;
+  color: var(--yellow);
+  white-space: nowrap;
+}
+
+/* 3D: the cards ARE the answers, standing in the street. These are the
+   numbered way in for a keyboard, a screen reader and a thumb. */
+.hz-keys { display: flex; align-items: center; gap: 18px; }
+.hz-key {
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: center / contain no-repeat var(--rosette);
+  border: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 8px 14px rgba(2, 8, 22, 0.5));
+  font-family: var(--font-num);
+  font-size: var(--t-h2);
+  font-weight: 700;
+  color: var(--paper);
+  transition: transform .12s var(--ease);
+}
+.hz-key:active { transform: translateY(3px); }
+.hz-key.is-hot { filter: drop-shadow(0 0 6px var(--yellow)) drop-shadow(0 8px 14px rgba(2, 8, 22, 0.5)); }
+.hz-key.is-committed { filter: drop-shadow(0 0 10px var(--amber)) drop-shadow(0 8px 14px rgba(2, 8, 22, 0.5)); color: var(--yellow); }
+
+/* Flat edition: no cards in the street, so the keys grow into the cards. */
+/* The flat street has an empty sky and no cards standing in it, so the
+   question goes to the top of the frame and the answers to the bottom — the
+   car in between is never covered by either. */
+.hz-banner--flat {
+  top: var(--pad);
+  align-items: stretch;
+  justify-content: space-between;
+}
+.hz-banner--flat .hz-ifthen { align-self: center; }
+.hz-keys--flat {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+.hz-keys--flat .hz-key {
+  width: 100%;
+  height: auto;
+  min-height: 156px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  place-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--r-plate);
+  filter: none;
+  background: var(--bolts), linear-gradient(197deg, var(--plate-lit) 0%, var(--plate-deep) 100%);
+  border: 2px solid var(--plate-line);
+  box-shadow: var(--shadow-plate);
+}
+.hz-key-band {
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.22);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+}
+.hz-key-num {
+  display: grid; place-items: center;
+  width: 46px; height: 46px; border-radius: 50%;
+  background: linear-gradient(180deg, #ffbf63, var(--amber)); color: #2b1400;
+  border: 2px solid var(--plate-line);
+  font-family: var(--font-num); font-size: var(--t-h5); font-weight: 700;
+}
+.hz-key-label {
+  display: grid;
+  place-items: center;
+  padding: 18px 22px;
+  font-family: var(--font-display);
+  font-size: var(--t-h4);
+  font-weight: 400;
+  line-height: 1.14;
+  text-align: center;
+  color: var(--paper);
+}
+.hz-keys--flat .hz-key.is-committed { border-color: var(--amber); box-shadow: var(--shadow-plate), 0 0 0 5px rgba(252, 160, 27, 0.45); filter: none; }
+.hz-keys--flat .hz-key.is-committed .hz-key-label { color: var(--paper); }
+
+/* =========================================================================
+   The scan — the policy being read, one rule at a time
+   ========================================================================= */
+
+.scan-panel {
+  position: absolute;
+  z-index: 15;
+  left: var(--pad);
+  top: 190px;
+  width: 700px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 26px 30px;
+  background: var(--bolts), linear-gradient(197deg, #16457a 0%, #0e2f57 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-panel);
+}
+.scan-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
+.scan-title {
+  font-family: var(--font-display); font-size: var(--t-body); font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3);
+  white-space: nowrap;
+}
+.scan-trigger {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 5px 18px; border-radius: var(--r-key);
+  background: linear-gradient(180deg, #ffbf63, var(--amber)); border: 2px solid var(--plate-line);
+  font-family: var(--font-display); font-size: var(--t-body); font-weight: 400; color: #2b1400;
+  white-space: normal;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.scan-trigger .ico { width: 24px; height: 24px; flex-shrink: 0; }
+.scan-law { font-size: var(--t-body); color: var(--ink-3); }
+
+/* Fixed height: one rule is on screen at a time, so the panel must not
+   resize as the walk moves between them. */
+.scan-list { position: relative; min-height: 176px; }
+.scan-rule {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px 16px;
+  padding: 20px 22px;
+  background: var(--bolts-sm), linear-gradient(197deg, var(--plate-lit) 0%, var(--plate-deep) 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-card);
+}
+.scan-n {
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+  background: var(--cream);
+  font-family: var(--font-num); font-size: var(--t-h5); font-weight: 700; color: var(--ink);
+}
+.scan-if { font-family: var(--font-display); font-size: var(--t-h5); font-weight: 400; color: var(--paper); align-self: center; min-width: 0; overflow-wrap: anywhere; }
+.scan-verdict {
+  grid-column: 2;
+  display: flex; align-items: center; gap: 10px;
+  font-size: var(--t-h6); color: var(--ink-2);
+  min-width: 0; overflow-wrap: anywhere;
+}
+.scan-verdict .ico { width: 26px; height: 26px; flex-shrink: 0; }
+.scan-rule.is-miss { opacity: 0.62; }
+.scan-rule.is-miss .scan-verdict { color: var(--ink-3); }
+.scan-rule.is-fired,
+.scan-rule.is-else { border-color: var(--good); box-shadow: 0 0 0 4px rgba(69, 205, 181, 0.34); }
+.scan-rule.is-fired .scan-n,
+.scan-rule.is-else .scan-n { background: var(--good-deep); color: var(--good); }
+.scan-rule.is-fired .scan-verdict,
+.scan-rule.is-else .scan-verdict { color: var(--good); }
+.scan-rule.is-nomatch {
+  grid-template-columns: 1fr;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 4px rgba(252, 160, 27, 0.32);
+  font-size: var(--t-h6);
+  color: var(--yellow);
+}
+
+/* =========================================================================
+   The verdict — a strip along the bottom, never a box over the crash
+   ========================================================================= */
+
+.fv-strip {
+  position: absolute;
+  z-index: 24;
+  left: var(--pad);
+  right: var(--pad);
+  bottom: var(--pad);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 26px;
+  padding: 24px 30px;
+  background: var(--bolts), linear-gradient(197deg, #16457a 0%, #0e2f57 100%);
+  border: 2px solid var(--plate-line);
+  border-left: 10px solid var(--red);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-panel);
+}
+.fv-tag {
+  padding: 8px 22px;
+  border-radius: var(--r-key);
+  background: var(--red);
+  border: 2px solid var(--plate-line);
+  font-family: var(--font-display); font-size: var(--t-h6); font-weight: 400;
+  letter-spacing: 0.08em; text-transform: uppercase; color: #fff;
+  white-space: nowrap;
+}
+.fv-copy { display: grid; gap: 6px; min-width: 0; }
+.fv-lead { font-family: var(--font-display); font-size: var(--t-h4); font-weight: 400; color: var(--paper); }
+.fv-why { font-size: var(--t-h6); color: var(--ink-2); }
+.fv-hint { font-size: var(--t-h6); color: var(--yellow); }
+.fv-actions { display: flex; align-items: center; gap: 18px; }
+.fv-attempt {
+  font-family: var(--font-display); font-size: var(--t-h6); font-weight: 700;
+  color: var(--ink-3); white-space: nowrap;
+}
+.fv-go {
+  display: inline-flex; align-items: center; gap: 14px;
+  height: 92px; padding: 0 36px;
+  border-radius: var(--r-plate);
+  background: var(--bolts), linear-gradient(197deg, #ffbf63 0%, var(--amber) 60%, var(--amber-deep) 100%);
+  border: 2px solid var(--plate-line);
+  box-shadow: var(--shadow-plate);
+  font-family: var(--font-display); font-size: var(--t-h5); font-weight: 400;
+  text-transform: uppercase; letter-spacing: 0.03em; color: #2b1400;
+  transition: transform .12s var(--ease);
+}
+.fv-go:active { transform: translateY(4px); box-shadow: 0 3px 0 rgba(3, 14, 34, 0.5); }
+.fv-ring { width: 40px; height: 40px; fill: none; stroke: #2b1400; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* A verdict owns the bottom band, so the dashboard stands down under it. */
+.act-screen[data-review='true'] .cluster { opacity: 0; pointer-events: none; }
+
+/* =========================================================================
+   The briefing
+   ========================================================================= */
+
+.brief-scrim {
+  position: absolute; inset: 0; z-index: 30;
+  display: grid; place-items: center; padding: var(--pad);
+  background: rgba(4, 12, 28, 0.66);
+}
+.brief-card {
+  width: min(1000px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 44px;
+  background: var(--bolts), linear-gradient(197deg, #16457a 0%, #0e2f57 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+}
+.brief-who { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.brief-level {
+  padding: 5px 18px; border-radius: var(--r-key);
+  background: var(--cream); border: 2px solid var(--plate-line);
+  font-family: var(--font-display); font-size: var(--t-body); font-weight: 400;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink);
+}
+.brief-eyebrow {
+  padding: 5px 18px; border-radius: var(--r-key);
+  background: linear-gradient(180deg, #ffbf63, var(--amber)); border: 2px solid var(--plate-line);
+  font-family: var(--font-display); font-size: var(--t-body); font-weight: 400;
+  letter-spacing: 0.06em; text-transform: uppercase; color: #2b1400;
+}
+.brief-title { font-size: var(--t-h2); line-height: 1.22; }
+.brief-task {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 22px 24px;
+  background: rgba(0, 0, 0, 0.22); border: 1px solid rgba(255, 255, 255, 0.22);
+  border-left: 6px solid var(--amber);
+  border-radius: var(--r-card);
+  font-size: var(--t-h6); color: var(--paper);
+}
+.task-tag {
+  flex: none;
+  font-family: var(--font-display); font-size: var(--t-body); font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--yellow);
+  padding-top: 4px;
+}
+.brief-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 4px; }
+.brief-actions .btn.primary { margin-left: auto; }
+
+/* =========================================================================
+   The rule editor
+   ========================================================================= */
+
+.editor-scrim {
+  position: absolute; inset: 0; z-index: 32;
+  display: grid; place-items: center; padding: var(--pad);
+  background: rgba(4, 12, 28, 0.7);
+}
+.editor-panel {
+  width: min(1832px, 100%);
+  height: min(992px, 100%);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  padding: 30px 36px 34px;
+  background: var(--bolts), linear-gradient(197deg, #16457a 0%, #0e2f57 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+}
+.editor-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.editor-head h2 { font-size: var(--t-h3); }
+.editor-close {
+  display: grid; place-items: center; width: 54px; height: 54px; flex: none;
+  border-radius: 50%; background: var(--red);
+  border: 2px solid var(--plate-line); font-size: var(--t-h4); color: #fff;
+}
+
+/* THE BUDGET. Panel 1832 wide, 1760 inside.
+     policy 940 + gap 26 + builder 794
+   The policy's two columns are 441 each, which is what a two-line rule needs;
+   at 330 every rule wrapped to four lines and the list ran off the panel. */
+.editor-body { display: grid; grid-template-columns: minmax(0, 1fr) 1160px; gap: 26px; min-height: 0; }
+.editor-body.is-focused { grid-template-columns: minmax(0, 1fr) 980px; }
+.editor-foot { display: flex; align-items: center; }
+.editor-hint { font-size: var(--t-h6); color: var(--accent); }
+
+/* ---- The builder ------------------------------------------------------ */
+.builder { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 16px; min-height: 0; }
+
+.rule-line {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  padding: 20px 22px;
+  background: rgba(0, 0, 0, 0.24);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--r-card);
+}
+.kw {
+  font-family: var(--font-display); font-size: var(--t-h4); font-weight: 400;
+  letter-spacing: 0.08em; color: var(--yellow);
+}
+.kw-drop {
+  padding: 4px 14px; border-radius: var(--r-key);
+  background: var(--cream); border: 2px solid var(--plate-line);
+  font-size: var(--t-body); color: var(--ink);
+}
+.rule-part { display: inline-flex; align-items: center; gap: 10px; }
+
+.slot {
+  display: inline-flex; align-items: center; gap: 10px;
+  min-width: 180px; min-height: 68px;
+  padding: 10px 20px;
+  border-radius: var(--r-key);
+  border: 3px dashed rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.2);
+  font-family: var(--font-display); font-size: var(--t-h6); font-weight: 400;
+  color: var(--paper-3);
+}
+.slot-ph { font-style: italic; color: var(--ink-3); }
+.slot.filled { border-style: solid; border-width: 2px; color: var(--ink); background: var(--cream); }
+.slot.slot-condition.filled { border-color: var(--plate-lit); }
+.slot.slot-action.filled { border-color: var(--good-deep); }
+.slot.is-active, .slot.is-over, .slot.is-hinted { border-color: var(--yellow); }
+.slot .ico, .slot .chip-ico .ico { width: 28px; height: 28px; }
+
+.tray {
+  display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.24);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--r-card);
+  min-height: 0;
+  overflow: hidden;
+}
+.tray-sep { width: 100%; height: 1px; background: var(--line); margin: 4px 0; }
+.chip {
+  display: inline-flex; align-items: center; gap: 10px;
+  height: 58px; padding: 0 16px;
+  border-radius: var(--r-key);
+  background: var(--cream);
+  border: 2px solid var(--plate-line);
+  border-left: 7px solid var(--plate-lit);
+  font-family: var(--font-display); font-size: var(--t-body); font-weight: 400;
+  color: var(--ink);
+  touch-action: none;
+}
+.chip-ico { display: inline-flex; }
+.chip-ico .ico { width: 26px; height: 26px; }
+.chip-action { border-left-color: var(--good-deep); }
+.chip-connector { border-left-color: var(--amber); }
+.chip.is-hinted { border-color: var(--amber); box-shadow: 0 0 0 4px rgba(252, 160, 27, 0.4); }
+.chip.is-used { opacity: 0.42; }
+.chip.is-dragging { opacity: 0.35; }
+.chip.is-overlay { box-shadow: var(--shadow-panel); }
+.chip-new {
+  padding: 2px 10px; border-radius: var(--r-pill);
+  background: var(--red); color: #fff;
+  font-family: var(--font-display); font-size: var(--t-body); font-weight: 400; text-transform: uppercase;
+}
+
+.gloss-line { font-size: var(--t-h6); color: var(--ink-3); min-height: 30px; }
+.gloss-line.is-hint { color: var(--yellow); }
+.builder-actions { display: flex; align-items: center; gap: 12px; }
+.builder-actions .btn.accent { margin-left: auto; }
+
+/* ---- The policy list -------------------------------------------------- */
+.policy {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  padding: 22px;
+  background: rgba(0, 0, 0, 0.24);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--r-card);
+}
+.policy-head { display: flex; align-items: center; gap: 12px; }
+.policy-head h3 {
+  font-size: var(--t-h6); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3);
+}
+.policy-count {
+  display: grid; place-items: center; min-width: 38px; height: 38px; padding: 0 10px;
+  border-radius: var(--r-key); background: linear-gradient(180deg, #ffbf63, var(--amber)); color: #2b1400;
+  border: 2px solid var(--plate-line);
+  font-family: var(--font-num); font-size: var(--t-body); font-weight: 700;
+}
+.policy-undo { display: inline-flex; gap: 6px; }
+.policy-step {
+  display: grid; place-items: center; width: 40px; height: 40px;
+  border-radius: 50%; background: rgba(255, 255, 255, 0.14);
+  border: 2px solid rgba(255, 255, 255, 0.45); font-size: var(--t-h6); color: var(--paper);
+}
+.policy-step:disabled { opacity: 0.3; }
+.policy-clear {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-left: auto; height: 40px; padding: 0 16px;
+  border-radius: var(--r-key);
+  background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.4);
+  font-size: var(--t-body); color: var(--paper-2);
+}
+.policy-clear .ico { width: 20px; height: 20px; }
+.policy-clear.is-confirming { background: var(--red); border-color: var(--plate-line); color: #fff; }
+.policy-law, .policy-empty { font-size: var(--t-body); color: var(--ink-3); }
+
+/* The list never scrolls. Up to seven rules it is one roomy column; beyond
+   that it flows into a second column, which is what a policy that has been
+   through the patrols actually looks like. */
+.policy-list {
+  display: grid;
+  grid-auto-flow: column;
+  /* `auto`, NOT `minmax(0, auto)`: the second lets a row shrink below its own
+     content when the column is full, and the rules then painted on top of one
+     another. A row is never smaller than the rule in it. */
+  grid-template-rows: repeat(7, auto);
+  grid-auto-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 6px 14px;
+  min-height: 0;
+}
+.policy-rule {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 76px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+}
+.policy-rule.is-flagged { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(252, 160, 27, 0.35); }
+.policy-rule.is-editing { border-color: var(--plate-lit); }
+.policy-order {
+  display: grid; place-items: center; width: 34px; height: 34px;
+  border-radius: 50%; background: var(--cream);
+  font-family: var(--font-num); font-size: var(--t-body); font-weight: 700; color: var(--ink);
+}
+/* ONE flowing line, not one row per clause. Two rows of chips doubled every
+   rule's height and a dozen of them then could not fit the column at any
+   width the panel could give it. */
+.policy-body { display: block; min-width: 0; line-height: 30px; }
+.policy-row { display: inline; }
+/* JSX drops the whitespace between elements on separate lines, so the words
+   need their own air or the rule reads "Scooter aheadTHEN". */
+.policy-row em { margin: 0 0.3em; }
+.policy-row:first-child em:first-child { margin-left: 0; }
+.policy-chip { margin-right: 0.15em; }
+.policy-row em {
+  font-style: normal; font-family: var(--font-num);
+  font-size: var(--t-body); font-weight: 700; letter-spacing: 0.06em; color: var(--yellow);
+}
+.policy-token { display: inline; }
+/* Inline text, not a pill: colour carries the condition/action distinction,
+   so the clause costs the width of its own words and nothing more. */
+.policy-chip {
+  display: inline; vertical-align: baseline;
+  font-size: var(--t-body); font-weight: 600; color: #9ccbff;
+}
+.policy-chip.chip-action { color: #6fe3cb; }
+.policy-chip .ico { width: 20px; height: 20px; vertical-align: -4px; margin-right: 4px; }
+/* Two by two, not four across: the tools were eating a third of the column
+   the rule text needed. */
+.policy-tools { display: grid; grid-template-columns: 34px 34px; gap: 4px; justify-content: end; }
+.policy-tools button {
+  display: grid; place-items: center; width: 34px; height: 34px; line-height: 1;
+  border-radius: 8px; background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28); font-size: var(--t-body); color: var(--paper);
+}
+.policy-tools button:disabled { opacity: 0.25; }
+
+/* =========================================================================
+   The instrument cluster, and the 3D canvas furniture
+   ========================================================================= */
+
+.cluster {
+  position: absolute;
+  z-index: 8;
+  right: var(--pad);
+  bottom: var(--pad);
+  width: 224px;
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  background: var(--bolts-sm), linear-gradient(197deg, var(--plate-lit) 0%, var(--plate-deep) 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-pill);
+  transition: opacity .24s var(--ease);
+}
+.cluster-speed { display: flex; align-items: baseline; gap: 8px; }
+.cluster-speed strong {
+  font-family: var(--font-num); font-size: var(--t-h1); font-weight: 700;
+  line-height: 1.25; color: var(--paper); font-variant-numeric: tabular-nums;
+}
+.cluster-speed span { font-family: var(--font-display); font-size: var(--t-body); color: var(--ink-3); }
+.cluster.is-alert .cluster-speed strong { color: var(--yellow); }
+.cluster-rear {
+  justify-self: start;
+  padding: 3px 14px; border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28); border: 2px solid rgba(255, 255, 255, 0.3);
+  font-family: var(--font-num); font-size: var(--t-body); font-weight: 700;
+  letter-spacing: 0.12em; color: var(--paper-3);
+}
+.cluster-rear.is-on { background: var(--good-deep); border-color: var(--good); color: #b6f5e9; }
+.cluster-route { position: relative; height: 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.cluster-route i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #ffbf63, var(--amber)); border-radius: 999px; }
+.cluster-route b { position: absolute; top: 3px; width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.6); translate: -50% 0; }
+.cluster-route b.is-past { background: #2b1400; }
+.cluster-route u { position: absolute; top: -2px; width: 4px; height: 16px; border-radius: 2px; background: var(--white); translate: -50% 0; }
+
+.scene { position: absolute; inset: 0; overflow: hidden; }
+.scene-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.scene-canvas { touch-action: none; cursor: grab; }
+.scene-canvas:active { cursor: grabbing; }
+.camera-reset {
+  position: absolute; z-index: 17;
+  right: calc(var(--pad) + 82px);
+  top: calc(var(--pad) + var(--hud-h) + 14px);
+  height: 66px; padding: 0 16px;
+  display: inline-flex; align-items: center; gap: 10px;
+  border: 2px solid var(--plate-line); border-radius: var(--r-key);
+  background: linear-gradient(197deg, var(--plate-lit), var(--plate-deep));
+  color: var(--paper); font-size: var(--t-body); box-shadow: var(--shadow-pill);
+}
+.camera-reset .ico { width: 26px; height: 26px; }
+.camera-reset:hover { border-color: var(--amber); }
+.camera-reset:focus-visible { outline: 4px solid var(--yellow); outline-offset: 4px; }
+.scene-fallback {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  width: min(760px, calc(100% - 2 * var(--pad)));
+  display: grid; gap: 14px; padding: 36px;
+  background: var(--bolts), linear-gradient(197deg, #16457a 0%, #0e2f57 100%);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--r-panel); box-shadow: var(--shadow-panel);
+  text-align: left;
+}
+.scene-fallback strong { font-family: var(--font-display); font-size: var(--t-h4); }
+.scene-fallback p { font-size: var(--t-body); color: var(--ink-2); }
+.scene-fallback .btn { justify-self: start; }
+
+.orbit-hint {
+  position: absolute; z-index: 10;
+  left: 50%; bottom: calc(var(--pad) + 132px); translate: -50% 0;
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 10px 22px; border-radius: var(--r-key);
+  background: linear-gradient(197deg, var(--plate-lit) 0%, var(--plate-deep) 100%);
+  border: 2px solid var(--plate-line);
+  font-size: var(--t-body); color: var(--paper); white-space: nowrap;
+  pointer-events: none;
+}
+.orbit-ico svg { width: 26px; height: 26px; fill: none; stroke: var(--yellow); stroke-width: 1.7; stroke-linecap: round; }
