@@ -1,3 +1,4 @@
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import * as THREE from 'three'
 
 /**
@@ -260,7 +261,7 @@ export function box(
   y = 0,
   z = 0,
 ) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
+  const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(w, h, d) * 0.18), material)
   mesh.position.set(x, y, z)
   mesh.castShadow = true
   mesh.receiveShadow = true

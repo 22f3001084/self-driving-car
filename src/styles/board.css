@@ -876,3 +876,15 @@ html.reduce-motion .skai-sound-menu.is-open { transition-delay: 0s; }
 .skai-situation[data-step="choose"] .skai-choice[data-count="2"] .choice-ico .ico { width: calc(66 * var(--px)); height: calc(66 * var(--px)); }
 .skai-situation[data-step="choose"] .skai-choice[data-count="2"] .choice-then { font-size: calc(28 * var(--px)); }
 .skai-situation[data-step="choose"] .skai-choice .choice-gloss { text-align: center; }
+
+button,input,select,textarea,.panel,.modal,.skai-choice,.skai-situation{border-radius:24px} button:not(.hud-hit):not(.hit-cta){clip-path:none;box-shadow:0 5px 0 #172b4d24,inset 0 2px 0 #ffffff55}
+
+/* Rounded chrome replaces angular vector badges and their pointed plates. */
+.skai-board [data-part="back"],.skai-board [data-part="cta"],.skai-board [data-part="sound"],.skai-board [data-part="info"]{visibility:hidden}
+.hud-hit.hit-back,.hud-hit.hit-sound,.hud-hit.hit-info{background:linear-gradient(#39d0df,#159ab4);border:4px solid white;border-radius:32px;box-shadow:0 6px 0 #12627d55;color:white}
+.hud-hit.hit-back::after{content:"←";font:700 64px system-ui}
+.hud-hit.hit-sound::after{content:"♫";font:700 42px system-ui}
+.hud-hit.hit-info::after{content:"i";font:700 42px system-ui}
+.hit-cta{background:linear-gradient(#5776dc,#354dad)!important;border:4px solid white!important;border-radius:32px!important;clip-path:none!important;box-shadow:0 7px 0 #19326755}
+
+.hit-cta::after{content:attr(aria-label);color:white;font:700 32px system-ui}.skai-board [data-part="timer"],.skai-board [data-part="progress"]{visibility:hidden}

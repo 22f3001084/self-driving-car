@@ -224,7 +224,9 @@ export default function SkaiHud() {
   const onBack = () => {
     play('click')
     if (phase === 'title') return
-    setMenuOpen(true)
+    stopNarration()
+    goBack()
+    setMenuOpen(false)
   }
 
   return (
@@ -258,7 +260,7 @@ export default function SkaiHud() {
       ))}
 
       {/* ---- transparent controls over the artwork -------------------- */}
-      <button className="hud-hit hit-back" style={pinStyle('back')} aria-label="Pause the mission" {...hitProps('back')} onClick={onBack} />
+      <button className="hud-hit hit-back" style={pinStyle('back')} aria-label="Back" {...hitProps('back')} onClick={onBack} />
       <button
         className="hud-hit hit-sound" style={{ ...boxStyle(entry.hits.sound), ...pinStyle('sound') }}
         aria-label={muted ? 'Sound is off. Open the sound menu' : 'Sound menu'}

@@ -273,6 +273,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
   goBack: () => {
     const { phase } = get()
+    if (phase === "play" || phase === "reflect" || phase === "patrols") { get().closeLevel(); return }
     const index = PHASE_ORDER.indexOf(phase)
     if (index <= 0) return
     get().setPhase(PHASE_ORDER[index - 1])
